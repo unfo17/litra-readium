@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.navigation.compose.*
 import io.github.unfo17.litra.LibraryViewModel
 import io.github.unfo17.litra.data.Book
@@ -37,20 +38,20 @@ fun LitraApp(vm: LibraryViewModel) {
         Scaffold(snackbarHost = { SnackbarHost(snackbar) }, bottomBar = {
             if (route in listOf("home", "library", "library-list", "search")) NavigationBar {
                 val tabs = listOf(Triple("home", "主页", Icons.Default.Home), Triple("library", "书库", Icons.Default.LocalLibrary), Triple("search", "搜索", Icons.Default.Search))
-                tabs.forEach { (id, label, icon) -> NavigationBarItem(selected = route == id || id == "library" && route == "library-list", onClick = { nav.navigate(if (id == "library" && preferences.listView) "library-list" else id) { launchSingleTop = true; popUpTo("home") } }, icon = { Icon(icon, null) }, label = { Text(label) }) }
+                tabs.forEach { (id, label, icon) -> NavigationBarItem(modifier = Modifier.testTag("tab-$id"), selected = route == id || id == "library" && route == "library-list", onClick = { nav.navigate(if (id == "library" && preferences.listView) "library-list" else id) { launchSingleTop = true; popUpTo("home") } }, icon = { Icon(icon, null) }, label = { Text(label) }) }
             }
         }, contentWindowInsets = WindowInsets(0)) { padding ->
             NavHost(nav, startDestination = "home", modifier = Modifier.padding(bottom = padding.calculateBottomPadding())) {
-                composable("home") { Scaffold(topBar = { PageBar("主页") }) { p -> Column(Modifier.padding(p)) { EmptyState("下一段阅读，从这里开始", "前往书库导入 EPUB。", "前往书库", { nav.navigate("library") }) } } }
+                composable("home") { HomeScreen(vm, books, read, detail, { selected = it }, { nav.navigate("goals") }, { nav.navigate(if (preferences.listView) "library-list" else "library") }) }
                 listOf("library", "library-list").forEach { id -> composable(id) {
                     LibraryScreen(vm, books, id == "library-list", onView = { list -> vm.flagPreference("list", list); nav.navigate(if (list) "library-list" else "library") { popUpTo(id) { inclusive = true } } }, onImport, { nav.navigate("collections") }, read, { selected = it })
                 } }
                 composable("collections") { CollectionsScreen(vm, { nav.popBackStack() }, { nav.navigate("finished") }) }
                 composable("finished") { FinishedScreen(vm, books, { nav.popBackStack() }, detail) }
-                composable("search") { Scaffold(topBar = { PageBar("搜索") }) { p -> Text("搜索即将接入本地书库", Modifier.padding(p)) } }
+                composable("search") { SearchScreen(vm, books, read, detail, { selected = it }, { nav.navigate("settings") }) }
                 composable("detail/{id}") { e -> val book = books?.find { it.id == e.arguments?.getString("id") }; Scaffold(topBar = { PageBar("图书信息", { nav.popBackStack() }) }) { p -> Column(Modifier.padding(p)) { if (book != null) { Text(book.title); Button(onClick = { read(book) }) { Text("阅读") } } else EmptyState("图书不存在") } } }
                 composable("reader/{id}") { e -> ReaderScreen(e.arguments?.getString("id").orEmpty(), vm, { nav.popBackStack() }) }
-                composable("goals") { Scaffold(topBar = { PageBar("阅读目标", { nav.popBackStack() }) }) { p -> Text("阅读目标", Modifier.padding(p)) } }
+                composable("goals") { GoalsScreen(vm, { nav.popBackStack() }) }
                 composable("settings") { Scaffold(topBar = { PageBar("设置", { nav.popBackStack() }) }) { p -> Text("设置", Modifier.padding(p)) } }
             }
         }
