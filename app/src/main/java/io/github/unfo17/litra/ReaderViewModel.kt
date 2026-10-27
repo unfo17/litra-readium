@@ -100,7 +100,7 @@ class ReaderViewModel(private val app: Application, private val repository: Libr
                     while (true) {
                         ensureActive()
                         val page = withContext(Dispatchers.IO) { iterator.next().getOrElse { error(it.message) } } ?: break
-                        results.value += page.locators
+                        results.value = (results.value + page.locators).take(500)
                         if (results.value.size >= 500) { searchError.value = "已显示前 500 个结果，请缩小搜索范围。"; break }
                     }
                 } finally { iterator.close() }
