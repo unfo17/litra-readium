@@ -68,7 +68,8 @@ class ImportPersistenceTest {
         }
     }
     companion object {
-        fun fixture(context: Context, n: Int): File {
+        fun fixture(context: Context, n: Int, fixed: Boolean = false): File {
+            val epub2 = n % 2 == 0
             val file = File(context.cacheDir, "fixture-$n.epub")
             val bitmap = Bitmap.createBitmap(100, 150, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.rgb(80 + n * 10, 90, 110)) }
             val cover = ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray(); bitmap.recycle()
@@ -81,9 +82,10 @@ class ImportPersistenceTest {
                 fun xml(name: String, text: String) = entry(name, text.toByteArray())
                 entry("mimetype", "application/epub+zip".toByteArray(), true)
                 xml("META-INF/container.xml", """<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="EPUB/package.opf" media-type="application/oebps-package+xml"/></rootfiles></container>""")
-                xml("EPUB/package.opf", """<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">urn:litra:test:$n</dc:identifier><dc:title>Litra EPUB $n</dc:title><dc:creator>Litra Test</dc:creator><dc:language>en</dc:language><meta property="dcterms:modified">2026-01-01T00:00:00Z</meta></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/><item id="cover" href="cover.png" media-type="image/png" properties="cover-image"/></manifest><spine><itemref idref="chapter"/></spine></package>""")
+                xml("EPUB/package.opf", """<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="${if (epub2) "2.0" else "3.0"}" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">urn:litra:test:$n</dc:identifier><dc:title>Litra EPUB $n</dc:title><dc:creator>Litra Test</dc:creator><dc:language>en</dc:language><meta name="cover" content="cover"/>${if (epub2) "" else "<meta property=\"dcterms:modified\">2026-01-01T00:00:00Z</meta>"}${if (fixed) "<meta property=\"rendition:layout\">pre-paginated</meta>" else ""}</metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" ${if (epub2) "" else "properties=\"nav\""}/><item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/><item id="cover" href="cover.png" media-type="image/png" ${if (epub2) "" else "properties=\"cover-image\""}/></manifest><spine toc="ncx"><itemref idref="chapter"/></spine></package>""")
+                xml("EPUB/toc.ncx", """<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1"><head><meta name="dtb:uid" content="urn:litra:test:$n"/></head><docTitle><text>Contents</text></docTitle><navMap><navPoint id="one" playOrder="1"><navLabel><text>Chapter One</text></navLabel><content src="chapter.xhtml"/></navPoint></navMap></ncx>""")
                 xml("EPUB/nav.xhtml", """<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><title>Contents</title></head><body><nav epub:type="toc"><ol><li><a href="chapter.xhtml">Chapter One</a></li></ol></nav></body></html>""")
-                xml("EPUB/chapter.xhtml", """<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Chapter One</title></head><body><h1>Litra EPUB $n</h1>${(1..80).joinToString("") { "<p>Paragraph $it. A quiet morning invites a new reading adventure. This is a real EPUB integration test.</p>" }}</body></html>""")
+                xml("EPUB/chapter.xhtml", """<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Chapter One</title><meta name="viewport" content="width=600,height=900"/></head><body><h1>Litra EPUB $n</h1>${(1..80).joinToString("") { "<p>Paragraph $it. A quiet morning invites a new reading adventure. This is a real EPUB integration test.</p>" }}</body></html>""")
                 entry("EPUB/cover.png", cover)
             }
             return file
