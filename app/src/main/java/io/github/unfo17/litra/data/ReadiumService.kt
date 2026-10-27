@@ -23,8 +23,8 @@ class ReadiumService @Inject constructor(@ApplicationContext context: Context) {
     private val retriever = AssetRetriever(context.contentResolver, http)
     private val opener = PublicationOpener(DefaultPublicationParser(context, http, retriever, pdfFactory = null))
     suspend fun open(file: File): Publication = withContext(Dispatchers.IO) {
-        val asset = retriever.retrieve(file.toUrl(isDirectory = false)).getOrElse { throw IOException(it.message) }
-        val publication = opener.open(asset, allowUserInteraction = false).getOrElse { asset.close(); throw IOException(it.message) }
+        val asset = retriever.retrieve(file.toUrl(isDirectory = false)).getOrElse { throw IOException("无法读取 EPUB，请检查文件是否完整且未加密。") }
+        val publication = opener.open(asset, allowUserInteraction = false).getOrElse { asset.close(); throw IOException("EPUB 解析失败，请检查文件是否完整且未加密。") }
         if (!publication.conformsTo(Publication.Profile.EPUB) || publication.isRestricted) {
             publication.close()
             throw IOException("仅支持未加密的 EPUB 2/3 文件")

@@ -1,6 +1,8 @@
 package io.github.unfo17.litra.ui
 
 import android.content.Intent
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -76,6 +78,13 @@ fun SettingsScreen(vm: LibraryViewModel, back: () -> Unit, goals: () -> Unit) {
     val prefs by vm.preferences.collectAsState()
     var clear by remember { mutableStateOf(false) }
     var reader by remember { mutableStateOf(false) }
+    var licenses by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val notice by produceState<String?>(null, licenses) {
+        if (licenses) value = withContext(Dispatchers.IO) {
+            runCatching { context.assets.open("licenses/NOTICE.txt").bufferedReader().use { it.readText() } }.getOrElse { "许可证文件读取失败：${it.localizedMessage}" }
+        }
+    }
     Scaffold(topBar = { PageBar("设置", back) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 32.dp)) {
             item { ListItem(headlineContent = { Text("阅读目标") }, supportingContent = { Text("为每天、每周或每月留出阅读时间") }, modifier = Modifier.clickable(onClick = goals), leadingContent = { Icon(Icons.Default.Timer, null) }) }
@@ -86,9 +95,10 @@ fun SettingsScreen(vm: LibraryViewModel, back: () -> Unit, goals: () -> Unit) {
             item { ListItem(headlineContent = { Text("保存搜索记录") }, trailingContent = { Switch(prefs.rememberSearch, { vm.flagPreference("history", it) }) }) }
             item { ListItem(headlineContent = { Text("清除搜索记录") }, modifier = Modifier.clickable { clear = true }, leadingContent = { Icon(Icons.Default.History, null) }) }
             item { HorizontalDivider(); ListItem(headlineContent = { Text("关于 Litra") }, supportingContent = { Text("${BuildConfig.VERSION_NAME} preview\n本地 EPUB 阅读器 · Kotlin / Material 3 / Readium\n不收集数据，无账号与云服务。仅支持无 DRM EPUB 2/3。") }) }
-            item { ListItem(headlineContent = { Text("开源许可") }, supportingContent = { Text("Readium：BSD-3-Clause；AndroidX / Coil / Hilt：Apache-2.0。完整依赖声明见项目 THIRD_PARTY_NOTICES.md。") }) }
+            item { ListItem(headlineContent = { Text("开源许可") }, modifier = Modifier.clickable { licenses = true }, supportingContent = { Text("Readium：BSD-3-Clause；AndroidX / Coil / Hilt：Apache-2.0。完整依赖声明见项目 THIRD_PARTY_NOTICES.md。") }) }
         }
     }
+    if (licenses) AlertDialog(onDismissRequest = { licenses = false }, title = { Text("开源许可") }, text = { Column(Modifier.verticalScroll(rememberScrollState())) { if (notice == null) CircularProgressIndicator() else Text(notice.orEmpty(), style = MaterialTheme.typography.bodySmall) } }, confirmButton = { TextButton(onClick = { licenses = false }) { Text("关闭") } })
     if (clear) AlertDialog(onDismissRequest = { clear = false }, title = { Text("清除搜索记录？") }, text = { Text("图书和阅读进度会保留。") }, confirmButton = { TextButton(onClick = { vm.action { vm.repository.dao.clearHistory() }; clear = false }) { Text("清除") } }, dismissButton = { TextButton(onClick = { clear = false }) { Text("取消") } })
     if (reader) AlertDialog(onDismissRequest = { reader = false }, title = { Text("阅读器排版") }, text = { Column(Modifier.verticalScroll(rememberScrollState())) { ReaderPreferences(vm) } }, confirmButton = { TextButton(onClick = { reader = false }) { Text("完成") } })
 }

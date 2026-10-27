@@ -72,5 +72,10 @@ class LibraryRepository @Inject constructor(@ApplicationContext private val cont
     }
     suspend fun progress(id: String, json: String, progression: Double) = dao.saveProgress(id, json, BookRules.progress(progression), System.currentTimeMillis())
     suspend fun finish(id: String) = dao.finish(id, System.currentTimeMillis())
-    suspend fun category(name: String) { require(name.trim().isNotEmpty()); dao.category(Category(name = name.trim().take(60))) }
+    suspend fun category(name: String) {
+        val value = name.trim().take(60)
+        require(value.isNotEmpty()) { "请输入分类名称" }
+        require(value !in listOf("图书", "欲读清单", "已读完", "PDF", "有声书")) { "请使用不同于默认藏书的分类名" }
+        dao.category(Category(name = value))
+    }
 }

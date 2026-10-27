@@ -35,3 +35,15 @@
 - 构建、8 项单元测试、lint、R8 Release 构建、6 项模拟器测试均通过。
 - 10 本导入测试混合 EPUB 2/3；另外验证固定版式渲染、设置与深色模式路由。
 - 最终视觉验收、README 截图与唯一 v0.1.0 发布在 M5 完成。
+
+## M5 — Preview 交付基线
+
+- 本地最终命令：`python3 tools/build_with_curl.py assembleDebug testDebugUnitTest lintDebug assembleRelease connectedDebugAndroidTest --max-workers=4`，全部通过；8 项单元测试、6 项设备测试。
+- 本机 JDK 17 已注册、SDK 37.0 已安装并接受 licenses；Java 直连 Maven 存在 TLS 握手问题，构建辅助脚本通过校验证书的 curl 访问同一官方源，仅在构建期间绑定 localhost，退出即关闭。常规 CI 无需此辅助脚本。
+- README 含四张真实 EPUB 截图、构建说明与已知限制；CHANGELOG、发布说明、运行时依赖及字体版权声明已补齐，设置内可查看许可。
+- 真实样书验收使用 API 35 ARM64 模拟器与 Project Gutenberg Alice、Frankenstein：SAF 多文件导入、真实封面和元数据、目录、阅读、恢复位置均可用。一本下载截断的样书被正确拒绝，损坏文件不会留下书库记录或私有文件。
+- 手工操作证据：Alice 到末页为 READING / 0.99；主页只显示“点击标记读完”；手动完成后重新读到约 48%，数据库仍为 FINISHED，finishedAt 保留。正常退出恢复位置；前台会话时长自动落库。
+- 手工分类验收：创建分类、标记、同一 FAB 切换为删除分类、确认删除，原两本书仍保留。已读完独立页、双列与列表、搜索、设置、目标由设备测试覆盖。
+- 深色模式与字体缩放 2.0 已做模拟器视觉检查；系统栏图标、选项换行、排版滚动和触控按钮可用。扩展 FAB 与分类选中状态带无障碍语义；尚无多厂商真机/TalkBack 人工走查。
+- 发布门槛：M5 PR 与 main 的构建、单元测试、lint、R8 检查通过后，才创建唯一 `v0.1.0` tag；tag 工作流生成 preview/debug signed APK、SHA256SUMS 和 GitHub Release。不创建里程碑 tag。
+- 发布入口：[v0.1.0](https://github.com/unfo17/litra-readium/releases/tag/v0.1.0)。未覆盖风险与产品限制见 README“已知限制”。

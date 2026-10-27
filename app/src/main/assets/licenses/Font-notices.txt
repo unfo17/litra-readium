@@ -1,0 +1,7 @@
+OpenDyslexic-Regular.otf (unmodified, bundled by Readium)
+Original Fonts are © Bitstream. OpenDyslexic changes and additional glyphs by Abelardo Gonzalez are licensed under a Creative Commons Attribution 3.0 Unported License.
+Based on a work at http://dyslexicfonts.com. 2012 by Abelardo Gonzalez.
+Bitstream license: Bitstream-Vera.txt. OpenDyslexic changes: CC-BY-3.0.txt.
+This notice follows the license embedded in the distributed font, which predates current SIL-OFL releases.
+
+Readium CSS font assets retain their original AccessibleDfA, iA Writer Duospace and GNU font license files within assets/readium/.

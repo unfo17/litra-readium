@@ -38,6 +38,12 @@ class ImportPersistenceTest {
                 assertEquals(book.id, repository.import(Uri.fromFile(file)).id)
             }
             assertEquals(10, db.library().books().first().size)
+            val broken = File(context.cacheDir, "broken.epub").also { it.writeText("PK truncated EPUB"); fixtures += it }
+            val existingFiles = repository.file("books").list()?.toSet()
+            try { repository.import(Uri.fromFile(broken)); fail("Corrupt EPUB must be rejected") }
+            catch (e: IOException) { assertTrue(e.message.orEmpty().contains("EPUB")) }
+            assertEquals(existingFiles, repository.file("books").list()?.toSet())
+            assertEquals(10, db.library().books().first().size)
             val first = books.first()
             repository.progress(first.id, "{\"href\":\"chapter.xhtml\",\"type\":\"application/xhtml+xml\",\"locations\":{\"totalProgression\":1.0}}", 1.0)
             assertEquals("READING", db.library().book(first.id)!!.status)
