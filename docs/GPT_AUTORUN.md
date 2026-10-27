@@ -11,7 +11,7 @@
 
 ## 环境
 
-- macOS，工作目录：`/Volumes/PortableDATA/Work/litra-readium`
+- macOS，工作目录：仓库根目录（`litra-readium/`）
 - `gh` 已登录账号 `unfo17`
 - 目标仓库：`litra-readium`（public；不存在则创建）
 - 本机暂无 Java / Android SDK；需要时自行安装 JDK 17 和 Android SDK，接受 licenses，配置 `ANDROID_HOME` / `local.properties`
