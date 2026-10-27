@@ -20,3 +20,10 @@
 - 完整 Locator 恢复；连续保存串行化；末页显示 99%，不会自动标记完成。
 - `assembleDebug testDebugUnitTest lintDebug connectedDebugAndroidTest` 全部通过。
 - 导航器集成测试实际渲染 EPUB、翻到末页、保存/恢复 Locator 并检索正文；模拟器 SAF 导入并阅读 Project Gutenberg《Alice's Adventures in Wonderland》，末页数据库为 READING / 0.99。
+
+## M3 — 已完成本地与模拟器验证
+
+- 五区块主页、欲读大封面、99% 手动完成控件；本地书名/作者搜索与最多十条历史。
+- 每天/每周/每月目标；前台阅读每 15 秒记账并在离开时补记；跨午夜拆分会话，历史周期保留目标快照。
+- 目标修改于当前周期结束后生效，切换周期的首个周期可为部分周期。
+- 构建、8 项单元测试、lint、4 项模拟器测试通过，覆盖三 Tab、视图切换、独立已读完页、搜索历史隐藏/显示、完成状态与目标周期。

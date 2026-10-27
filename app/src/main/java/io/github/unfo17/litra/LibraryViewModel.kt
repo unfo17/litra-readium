@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 
 @HiltViewModel
-class LibraryViewModel @Inject constructor(val repository: LibraryRepository, val preferencesRepository: PreferencesRepository) : ViewModel() {
+class LibraryViewModel @Inject constructor(val repository: LibraryRepository, val preferencesRepository: PreferencesRepository, val goalsRepository: GoalsRepository) : ViewModel() {
     val error = MutableStateFlow<String?>(null)
     val books = repository.books.catch { error.value = "书库读取失败：${it.localizedMessage}"; emit(emptyList()) }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val categories = repository.categories.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -19,6 +19,9 @@ class LibraryViewModel @Inject constructor(val repository: LibraryRepository, va
     val history = repository.dao.history().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val importing = MutableStateFlow(false)
     val message = MutableStateFlow<String?>(null)
+    val goals = goalsRepository.goals.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val checkIns = goalsRepository.checkIns.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    init { action { goalsRepository.initialize() } }
     val filter = MutableStateFlow("图书")
     fun action(block: suspend () -> Unit) { viewModelScope.launch { try { block() } catch (e: CancellationException) { throw e } catch (e: Exception) { error.value = e.localizedMessage ?: "操作失败，请重试" } } }
     fun import(uris: List<Uri>) = action {

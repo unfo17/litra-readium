@@ -2,6 +2,11 @@
 package io.github.unfo17.litra.ui
 
 import android.app.Application
+import android.os.SystemClock
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.awaitCancellation
+import androidx.lifecycle.repeatOnLifecycle
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
@@ -61,6 +66,20 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
         }
         owner.lifecycle.addObserver(observer)
         onDispose { owner.lifecycle.removeObserver(observer); window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+    }
+    LaunchedEffect(publication, owner, sheet) {
+        if (publication != null && sheet == null) owner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            var elapsed = SystemClock.elapsedRealtime()
+            fun flush() {
+                val seconds = (SystemClock.elapsedRealtime() - elapsed) / 1000
+                if (seconds > 0) {
+                    elapsed += seconds * 1000
+                    val started = System.currentTimeMillis() - seconds * 1000
+                    library.action { library.goalsRepository.record(id, started, seconds) }
+                }
+            }
+            try { while (isActive) { delay(15000); flush() } } finally { flush() }
+        }
     }
     val controller = reflowable?.controller
     val fixedController = fixed?.controller
