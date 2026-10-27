@@ -47,3 +47,4 @@
 - 深色模式与字体缩放 2.0 已做模拟器视觉检查；系统栏图标、选项换行、排版滚动和触控按钮可用。扩展 FAB 与分类选中状态带无障碍语义；尚无多厂商真机/TalkBack 人工走查。
 - 发布门槛：M5 PR 与 main 的构建、单元测试、lint、R8 检查通过后，才创建唯一 `v0.1.0` tag；tag 工作流生成 preview/debug signed APK、SHA256SUMS 和 GitHub Release。不创建里程碑 tag。
 - 发布入口：[v0.1.0](https://github.com/unfo17/litra-readium/releases/tag/v0.1.0)。未覆盖风险与产品限制见 README“已知限制”。
+- 最后复核补充：短暂数据库提交阶段不可取消，避免已提交书目在导入取消时丢失私有 EPUB；最后一次完整本地检查仍为 8 项 unit / 6 项 device 全通过。R8 压缩产物已用本地 debug 证书签名，实际安装、SAF 导入 Alice 并成功显示第一章正文，无 AndroidRuntime 崩溃记录。

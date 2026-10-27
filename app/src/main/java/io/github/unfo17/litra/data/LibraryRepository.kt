@@ -56,8 +56,11 @@ class LibraryRepository @Inject constructor(@ApplicationContext private val cont
                     val bitmap = pub.coverFitting(Size(600, 900))
                     bitmap?.let { image -> coverFile.outputStream().use { image.compress(Bitmap.CompressFormat.JPEG, 85, it) }; image.recycle() }
                     val meta = pub.metadata
-                    val book = Book(id = id, title = meta.title?.takeIf { it.isNotBlank() } ?: "未命名图书", authors = meta.authors.joinToString("、") { it.name }, fileName = "books/$id.epub", coverName = if (coverFile.exists()) "covers/$id.jpg" else null, hash = hash, description = meta.description.orEmpty(), language = meta.languages.joinToString(", "), publisher = meta.publishers.joinToString("、") { it.name }, size = bookFile.length())
-                    dao.insert(book); saved = true; book
+                    val book = Book(id = id, title = meta.title?.takeIf { it.isNotBlank() } ?: "未命名图书", authors = meta.authors.joinToString("、") { it.name }, fileName = "books/$id.epub", coverName = if (coverFile.length() > 0) "covers/$id.jpg" else null, hash = hash, description = meta.description.orEmpty(), language = meta.languages.joinToString(", "), publisher = meta.publishers.joinToString("、") { it.name }, size = bookFile.length())
+                    // Finish the short commit even if the picker/activity is cancelled.
+                    // Otherwise a committed row could be left pointing at a deleted EPUB.
+                    withContext(NonCancellable) { dao.insert(book); saved = true }
+                    book
                 } finally { pub.close() }
             } finally {
                 if (!saved) { bookFile.delete(); coverFile.delete() }
