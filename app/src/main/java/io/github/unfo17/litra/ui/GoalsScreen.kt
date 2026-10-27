@@ -26,7 +26,7 @@ fun GoalsScreen(vm: LibraryViewModel, back: () -> Unit) {
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item { Text("把阅读留给每一天", style = MaterialTheme.typography.headlineMedium) }
             item { Text("当前：${GoalPeriods.label(active.period)} ${active.minutes} 分钟。只有阅读器在前台时计时。") }
-            item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("DAILY", "WEEKLY", "MONTHLY").forEach { key -> FilterChip(selected = period == key, onClick = { period = key }, label = { Text(GoalPeriods.label(key)) }) } } }
+            item { FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("DAILY", "WEEKLY", "MONTHLY").forEach { key -> FilterChip(selected = period == key, onClick = { period = key }, label = { Text(GoalPeriods.label(key)) }) } } }
             item { OutlinedTextField(minutes, { minutes = it.filter(Char::isDigit).take(4) }, label = { Text("目标分钟数（1–1440）") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(), isError = minutes.toIntOrNull()?.let { it !in 1..1440 } ?: true) }
             item { Button(onClick = { vm.action { vm.goalsRepository.configure(period, minutes.toInt()); vm.message.value = "目标已保存，下个周期生效" } }, enabled = minutes.toIntOrNull()?.let { it in 1..1440 } == true) { Text("保存目标") } }
             item { Text("修改从当前周期结束后生效，历史打卡保持原目标。跨周期切换的首个周期可能较短。", style = MaterialTheme.typography.bodySmall) }

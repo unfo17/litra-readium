@@ -28,6 +28,7 @@ class AppFlowTest {
             compose.waitUntil(5000) { vm.history.value.isNotEmpty() }
             compose.onNodeWithTag("search-history").assertExists()
             compose.onNodeWithTag("tab-library").performClick()
+            compose.onNodeWithContentDescription("导入 EPUB").assertExists()
             compose.onNodeWithContentDescription("筛选、排序与视图").performClick()
             val target = if (vm.preferences.value.listView) "切换为双列封面" else "切换为列表"
             compose.onNodeWithText(target).performClick()

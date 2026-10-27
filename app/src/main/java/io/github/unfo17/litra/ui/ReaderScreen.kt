@@ -9,7 +9,10 @@ import kotlinx.coroutines.awaitCancellation
 import androidx.lifecycle.repeatOnLifecycle
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
@@ -39,6 +42,7 @@ import org.readium.r2.shared.publication.*
 @Composable
 fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
     val context = LocalContext.current
+    val activity = LocalActivity.current
     val vm: ReaderViewModel = viewModel(key = id, factory = object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST") override fun <T : ViewModel> create(modelClass: Class<T>): T = ReaderViewModel(context.applicationContext as Application, library.repository, id) as T
     })
@@ -59,7 +63,7 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
     BackHandler { if (sheet != null) sheet = null else leave() }
     val owner = LocalLifecycleOwner.current
     DisposableEffect(owner, prefs.keepAwake) {
-        val window = (context as? MainActivity)?.window
+        val window = activity?.window
         if (prefs.keepAwake) window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP) library.action { vm.saveNow() }
@@ -102,7 +106,7 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
     }, bottomBar = {
         Surface(tonalElevation = 2.dp) {
             Column(Modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                Text("${locator?.title ?: "阅读进度"} · ${BookRules.percent(progress)}%", style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("${locator?.title ?: publication?.tableOfContents?.let { flattenToc(it) }?.find { it.url().removeFragment() == locator?.href?.removeFragment() }?.title ?: "阅读进度"} · ${BookRules.percent(progress)}%", style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 var slider by remember { mutableFloatStateOf(0f) }; var dragging by remember { mutableStateOf(false) }
                 Slider(modifier = Modifier.testTag("reader-progress"), value = if (dragging) slider else (locator?.locations?.totalProgression ?: 0.0).toFloat(), onValueChange = { dragging = true; slider = it }, onValueChangeFinished = { scope.launch { vm.seek(slider); dragging = false } }, enabled = publication != null)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -141,7 +145,7 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
                     if (!searching && query.isNotBlank() && results.isEmpty()) Text("没有匹配内容", Modifier.padding(vertical = 16.dp))
                     LazyColumn { items(results) { result -> TextButton(onClick = { scope.launch { vm.go(result); sheet = null } }) { Text("${result.text.before.orEmpty()}${result.text.highlight.orEmpty()}${result.text.after.orEmpty()}", maxLines = 4) } } }
                 }
-                "排版" -> ReaderPreferences(library, fixed != null)
+                "排版" -> Box(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) { ReaderPreferences(library, fixed != null) }
             }
             Spacer(Modifier.height(28.dp))
         }
@@ -157,9 +161,11 @@ fun ReaderPreferences(vm: LibraryViewModel, fixed: Boolean = false) {
             Text("字号"); Slider(p.fontSize.toFloat(), { vm.action { vm.preferencesRepository.number("font", it.toDouble()) } }, valueRange = 0.6f..2.5f)
             Text("行距"); Slider(p.lineHeight.toFloat(), { vm.action { vm.preferencesRepository.number("line", it.toDouble()) } }, valueRange = 1f..2.5f)
             Text("页边距"); Slider(p.margins.toFloat(), { vm.action { vm.preferencesRepository.number("margins", it.toDouble()) } }, valueRange = 0f..3f)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("LIGHT" to "白色", "SEPIA" to "纸色", "DARK" to "夜间").forEach { (id, label) -> FilterChip(selected = p.readerTheme == id, onClick = { vm.textPreference("readerTheme", id) }, label = { Text(label) }) } }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("LIGHT" to "白色", "SEPIA" to "纸色", "DARK" to "夜间").forEach { (id, label) -> FilterChip(selected = p.readerTheme == id, onClick = { vm.textPreference("readerTheme", id) }, label = { Text(label) }) } }
             Row(verticalAlignment = Alignment.CenterVertically) { Text("两端对齐", Modifier.weight(1f)); Switch(p.justify, { vm.flagPreference("justify", it) }) }
             Row(verticalAlignment = Alignment.CenterVertically) { Text("连续滚动", Modifier.weight(1f)); Switch(p.scroll, { vm.flagPreference("scroll", it) }) }
         }
     }
 }
+
+private fun flattenToc(links: List<Link>): List<Link> = links.flatMap { listOf(it) + flattenToc(it.children) }

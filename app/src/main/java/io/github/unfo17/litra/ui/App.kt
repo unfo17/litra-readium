@@ -49,10 +49,10 @@ fun LitraApp(vm: LibraryViewModel) {
                 composable("collections") { CollectionsScreen(vm, { nav.popBackStack() }, { nav.navigate("finished") }) }
                 composable("finished") { FinishedScreen(vm, books, { nav.popBackStack() }, detail) }
                 composable("search") { SearchScreen(vm, books, read, detail, { selected = it }, { nav.navigate("settings") }) }
-                composable("detail/{id}") { e -> val book = books?.find { it.id == e.arguments?.getString("id") }; Scaffold(topBar = { PageBar("图书信息", { nav.popBackStack() }) }) { p -> Column(Modifier.padding(p)) { if (book != null) { Text(book.title); Button(onClick = { read(book) }) { Text("阅读") } } else EmptyState("图书不存在") } } }
+                composable("detail/{id}") { e -> DetailScreen(vm, books?.find { it.id == e.arguments?.getString("id") }, books == null, { nav.popBackStack() }, read) }
                 composable("reader/{id}") { e -> ReaderScreen(e.arguments?.getString("id").orEmpty(), vm, { nav.popBackStack() }) }
                 composable("goals") { GoalsScreen(vm, { nav.popBackStack() }) }
-                composable("settings") { Scaffold(topBar = { PageBar("设置", { nav.popBackStack() }) }) { p -> Text("设置", Modifier.padding(p)) } }
+                composable("settings") { SettingsScreen(vm, { nav.popBackStack() }, { nav.navigate("goals") }) }
             }
         }
         selected?.let { book -> AlertDialog(onDismissRequest = { selected = null }, title = { Text(book.title) }, text = { Column {
