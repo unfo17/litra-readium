@@ -13,3 +13,10 @@
 - 双列/列表、排序、全屏藏书选项、自定义分类和已读完时间线。
 - 本地 `assembleDebug testDebugUnitTest lintDebug connectedDebugAndroidTest` 全部通过。
 - 模拟器集成测试实际导入 10 本有效 EPUB；验证封面、查重、分类级联、历史最多 10 条、重启数据与 `FINISHED` 保持。
+
+## M2 — 已完成本地与模拟器验证
+
+- Readium 3.4.0 Compose 重排/固定版式导航器；目录、书内搜索、书签、排版与独立阅读主题。
+- 完整 Locator 恢复；连续保存串行化；末页显示 99%，不会自动标记完成。
+- `assembleDebug testDebugUnitTest lintDebug connectedDebugAndroidTest` 全部通过。
+- 导航器集成测试实际渲染 EPUB、翻到末页、保存/恢复 Locator 并检索正文；模拟器 SAF 导入并阅读 Project Gutenberg《Alice's Adventures in Wonderland》，末页数据库为 READING / 0.99。

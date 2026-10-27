@@ -49,7 +49,7 @@ fun LitraApp(vm: LibraryViewModel) {
                 composable("finished") { FinishedScreen(vm, books, { nav.popBackStack() }, detail) }
                 composable("search") { Scaffold(topBar = { PageBar("搜索") }) { p -> Text("搜索即将接入本地书库", Modifier.padding(p)) } }
                 composable("detail/{id}") { e -> val book = books?.find { it.id == e.arguments?.getString("id") }; Scaffold(topBar = { PageBar("图书信息", { nav.popBackStack() }) }) { p -> Column(Modifier.padding(p)) { if (book != null) { Text(book.title); Button(onClick = { read(book) }) { Text("阅读") } } else EmptyState("图书不存在") } } }
-                composable("reader/{id}") { Scaffold(topBar = { PageBar("阅读器", { nav.popBackStack() }) }) { p -> Text("Readium 阅读器将在 M2 接入", Modifier.padding(p)) } }
+                composable("reader/{id}") { e -> ReaderScreen(e.arguments?.getString("id").orEmpty(), vm, { nav.popBackStack() }) }
                 composable("goals") { Scaffold(topBar = { PageBar("阅读目标", { nav.popBackStack() }) }) { p -> Text("阅读目标", Modifier.padding(p)) } }
                 composable("settings") { Scaffold(topBar = { PageBar("设置", { nav.popBackStack() }) }) { p -> Text("设置", Modifier.padding(p)) } }
             }
