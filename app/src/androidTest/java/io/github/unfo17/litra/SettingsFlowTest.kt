@@ -24,6 +24,9 @@ class SettingsFlowTest {
             compose.onNodeWithText("阅读器排版").performClick()
             compose.onNodeWithText("连续滚动").assertExists()
             compose.onNodeWithText("完成").performClick()
+            compose.onNodeWithText("开源许可").performScrollTo().performClick()
+            compose.waitUntil(5000) { compose.onAllNodesWithText("Litra — third-party notices", substring = true).fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("关闭").performClick()
         } finally { runBlocking { vm.preferencesRepository.text("appearance", original) } }
     }
 }

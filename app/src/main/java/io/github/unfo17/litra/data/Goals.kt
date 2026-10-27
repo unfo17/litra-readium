@@ -48,13 +48,16 @@ class GoalsRepository @Inject constructor(private val db: LitraDatabase) {
             if (dao.book(bookId) == null) return@withTransaction
             var cursor = startedAt
             val finish = startedAt + seconds * 1000
+            var accountedSeconds = 0L
             while (cursor < finish) {
                 val goal = dao.activeGoal(cursor) ?: ReadingGoal(id = 0)
                 val range = GoalPeriods.activeRange(goal, cursor, zone)
                 val dayRange = GoalPeriods.range("DAILY", cursor, zone)
                 val pending = dao.pendingGoal(cursor)?.effectiveAt ?: Long.MAX_VALUE
                 val end = minOf(finish, range.end, dayRange.end, pending)
-                val duration = (end - cursor) / 1000
+                val cumulativeSeconds = (end - startedAt) / 1000
+                val duration = cumulativeSeconds - accountedSeconds
+                accountedSeconds = cumulativeSeconds
                 if (duration > 0) {
                     dao.session(ReadingSession(bookId = bookId, startedAt = cursor, seconds = duration, localDay = Instant.ofEpochMilli(cursor).atZone(zone).toLocalDate().toString()))
                     val old = dao.checkIn(goal.period, range.start) ?: GoalCheckIn(goal.period, range.start, range.end, goal.minutes)

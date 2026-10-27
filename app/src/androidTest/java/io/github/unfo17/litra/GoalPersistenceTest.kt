@@ -40,6 +40,9 @@ class GoalPersistenceTest {
             assertEquals(1, dao.checkIn("DAILY", midnight)!!.target)
             assertEquals(next.completedAt, dao.checkIn("DAILY", midnight)!!.completedAt)
             assertEquals(3, dao.sessions().first().size)
+            val before = dao.sessions().first().sumOf { it.seconds }
+            repo.record(book.id, midnight - 1501, 3, zone)
+            assertEquals(3, dao.sessions().first().sumOf { it.seconds } - before)
         } finally { db.close() }
     }
 }

@@ -56,8 +56,11 @@ class LibraryRepository @Inject constructor(@ApplicationContext private val cont
                     val bitmap = pub.coverFitting(Size(600, 900))
                     bitmap?.let { image -> coverFile.outputStream().use { image.compress(Bitmap.CompressFormat.JPEG, 85, it) }; image.recycle() }
                     val meta = pub.metadata
-                    val book = Book(id = id, title = meta.title?.takeIf { it.isNotBlank() } ?: "未命名图书", authors = meta.authors.joinToString("、") { it.name }, fileName = "books/$id.epub", coverName = if (coverFile.exists()) "covers/$id.jpg" else null, hash = hash, description = meta.description.orEmpty(), language = meta.languages.joinToString(", "), publisher = meta.publishers.joinToString("、") { it.name }, size = bookFile.length())
-                    dao.insert(book); saved = true; book
+                    val book = Book(id = id, title = meta.title?.takeIf { it.isNotBlank() } ?: "未命名图书", authors = meta.authors.joinToString("、") { it.name }, fileName = "books/$id.epub", coverName = if (coverFile.length() > 0) "covers/$id.jpg" else null, hash = hash, description = meta.description.orEmpty(), language = meta.languages.joinToString(", "), publisher = meta.publishers.joinToString("、") { it.name }, size = bookFile.length())
+                    // Finish the short commit even if the picker/activity is cancelled.
+                    // Otherwise a committed row could be left pointing at a deleted EPUB.
+                    withContext(NonCancellable) { dao.insert(book); saved = true }
+                    book
                 } finally { pub.close() }
             } finally {
                 if (!saved) { bookFile.delete(); coverFile.delete() }
@@ -72,5 +75,10 @@ class LibraryRepository @Inject constructor(@ApplicationContext private val cont
     }
     suspend fun progress(id: String, json: String, progression: Double) = dao.saveProgress(id, json, BookRules.progress(progression), System.currentTimeMillis())
     suspend fun finish(id: String) = dao.finish(id, System.currentTimeMillis())
-    suspend fun category(name: String) { require(name.trim().isNotEmpty()); dao.category(Category(name = name.trim().take(60))) }
+    suspend fun category(name: String) {
+        val value = name.trim().take(60)
+        require(value.isNotEmpty()) { "请输入分类名称" }
+        require(value !in listOf("图书", "欲读清单", "已读完", "PDF", "有声书")) { "请使用不同于默认藏书的分类名" }
+        dao.category(Category(name = value))
+    }
 }

@@ -71,8 +71,10 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
         owner.lifecycle.addObserver(observer)
         onDispose { owner.lifecycle.removeObserver(observer); window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
     }
-    LaunchedEffect(publication, owner, sheet) {
-        if (publication != null && sheet == null) owner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+    val controller = reflowable?.controller
+    val fixedController = fixed?.controller
+    LaunchedEffect(controller, fixedController, owner, sheet) {
+        if ((controller != null || fixedController != null) && sheet == null) owner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             var elapsed = SystemClock.elapsedRealtime()
             fun flush() {
                 val seconds = (SystemClock.elapsedRealtime() - elapsed) / 1000
@@ -85,8 +87,6 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
             try { while (isActive) { delay(15000); flush() } } finally { flush() }
         }
     }
-    val controller = reflowable?.controller
-    val fixedController = fixed?.controller
     LaunchedEffect(controller) { controller?.let { c -> snapshotFlow { c.location.toLocator() to !c.canMoveForward }.distinctUntilChanged().collect { (location, end) -> vm.location(location, end) } } }
     LaunchedEffect(fixedController) { fixedController?.let { c -> snapshotFlow { c.location.toLocator() to !c.canMoveForward }.distinctUntilChanged().collect { (location, end) -> vm.location(location, end) } } }
     LaunchedEffect(controller, prefs) {
