@@ -23,4 +23,13 @@ class BookRulesTest {
         assertEquals(0.0, BookRules.progress(-1.0), 0.0)
         assertEquals(0.99, BookRules.progress(2.0), 0.0)
     }
+    @Test fun detailTagsUseRealMetadataAndDeduplicate() {
+        val book = Book(title = "Test", authors = "Author", fileName = "test.epub", hash = "test", kind = "漫画", language = "en", format = "epub", size = 2L * 1024 * 1024)
+        assertEquals(listOf("科幻", "语言 en", "EPUB", "2.0 MB"), book.detailTags(listOf(" 科幻 ", "科幻")))
+    }
+    @Test fun detailTagsSkipMissingMetadata() {
+        val book = Book(title = "Test", authors = "", fileName = "test.epub", hash = "test", format = "")
+        assertTrue(book.detailTags(emptyList()).isEmpty())
+        assertEquals("1 KB", fileSizeLabel(1024))
+    }
 }

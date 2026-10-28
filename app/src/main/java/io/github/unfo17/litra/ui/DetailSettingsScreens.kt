@@ -1,5 +1,6 @@
 package io.github.unfo17.litra.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.content.Intent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -29,13 +30,15 @@ import io.github.unfo17.litra.data.*
 
 @Composable
 fun DetailScreen(vm: LibraryViewModel, book: Book?, loading: Boolean, back: () -> Unit, read: (Book) -> Unit) {
-    val categories by vm.categories.collectAsState()
-    val members by vm.memberships.collectAsState()
+    val categories by vm.categories.collectAsStateWithLifecycle()
+    val members by vm.memberships.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val background = MaterialTheme.colorScheme.surface
     Scaffold(contentWindowInsets = WindowInsets(0), floatingActionButton = { if (book != null) ExtendedFloatingActionButton(modifier = Modifier.semantics { contentDescription = "阅读《${book.title}》" }, onClick = { read(book) }, icon = { Icon(Icons.Default.MenuBook, null) }, text = { Text("阅读") }) }) { padding ->
         if (book == null) Column(Modifier.statusBarsPadding().padding(padding)) { PageBar("图书信息", back); if (loading) CircularProgressIndicator() else EmptyState("图书已移除", "返回书库选择其他图书。") }
         else {
+            val categoryNames = categories.filter { category -> members.any { it.bookId == book.id && it.categoryId == category.id } }.map { it.name }
+            val tags = book.detailTags(categoryNames)
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 140.dp)) {
                 item {
                     Box(Modifier.fillMaxWidth().height(390.dp)) {
@@ -51,10 +54,11 @@ fun DetailScreen(vm: LibraryViewModel, book: Book?, loading: Boolean, back: () -
                         Text(book.title, style = MaterialTheme.typography.headlineLarge, textAlign = TextAlign.Center)
                         if (book.authors.isNotBlank()) Text(book.authors, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
                         Text(book.progressLabel, color = MaterialTheme.colorScheme.primary)
-                        Text((listOf(book.kind) + categories.filter { category -> members.any { it.bookId == book.id && it.categoryId == category.id } }.map { it.name }).joinToString(" · "), textAlign = TextAlign.Center)
-                        RectangularCard("内容简介", if (book.description.isBlank()) "这本 EPUB 未提供内容简介。" else HtmlCompat.fromHtml(book.description, HtmlCompat.FROM_HTML_MODE_COMPACT).toString())
-                        RectangularCard("出版信息", listOfNotNull(book.publisher.takeIf { it.isNotBlank() }?.let { "出版者：$it" }, book.language.takeIf { it.isNotBlank() }?.let { "语言：$it" }, "格式：${book.format}", "文件大小：${"%.2f".format(book.size / 1024.0 / 1024.0)} MB").joinToString("\n"))
+                        if (tags.isNotEmpty()) FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) { tags.forEach { MetadataTag(it) } }
+                        Text("类型", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("图书", "漫画").forEach { kind -> FilterChip(selected = book.kind == kind, onClick = { vm.action { vm.repository.dao.kind(book.id, kind) } }, label = { Text(kind) }) } }
+                        RectangularCard("内容简介", if (book.description.isBlank()) "这本 EPUB 未提供内容简介。" else HtmlCompat.fromHtml(book.description, HtmlCompat.FROM_HTML_MODE_COMPACT).toString())
+                        RectangularCard("出版信息", listOfNotNull(book.publisher.takeIf { it.isNotBlank() }?.let { "出版者：$it" }, book.language.takeIf { it.isNotBlank() }?.let { "语言：$it" }, "格式：${book.format}", book.size.takeIf { it > 0 }?.let { "文件大小：${fileSizeLabel(it)}" }).joinToString("\n"))
                         TextButton(onClick = {
                             val text = listOf(book.title, book.authors).filter { it.isNotBlank() }.joinToString(" — ")
                             context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "分享图书信息"))
@@ -74,8 +78,15 @@ private fun RectangularCard(title: String, text: String) {
 }
 
 @Composable
+private fun MetadataTag(text: String) {
+    Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+        Text(text, Modifier.padding(horizontal = 10.dp, vertical = 6.dp), style = MaterialTheme.typography.labelMedium)
+    }
+}
+
+@Composable
 fun SettingsScreen(vm: LibraryViewModel, back: () -> Unit, goals: () -> Unit) {
-    val prefs by vm.preferences.collectAsState()
+    val prefs by vm.preferences.collectAsStateWithLifecycle()
     var clear by remember { mutableStateOf(false) }
     var reader by remember { mutableStateOf(false) }
     var licenses by remember { mutableStateOf(false) }

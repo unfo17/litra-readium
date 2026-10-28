@@ -1,6 +1,7 @@
 @file:OptIn(org.readium.r2.shared.ExperimentalReadiumApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 package io.github.unfo17.litra.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.app.Application
 import android.os.SystemClock
 import kotlinx.coroutines.delay
@@ -46,15 +47,15 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
     val vm: ReaderViewModel = viewModel(key = id, factory = object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST") override fun <T : ViewModel> create(modelClass: Class<T>): T = ReaderViewModel(context.applicationContext as Application, library.repository, id) as T
     })
-    val publication by vm.publication.collectAsState()
-    val reflowable by vm.reflowable.collectAsState()
-    val fixed by vm.fixed.collectAsState()
-    val error by vm.error.collectAsState()
-    val book by vm.book.collectAsState()
-    val locator by vm.current.collectAsState()
-    val progress by vm.progress.collectAsState()
-    val prefs by library.preferences.collectAsState()
-    val bookmarks by vm.bookmarks.collectAsState()
+    val publication by vm.publication.collectAsStateWithLifecycle()
+    val reflowable by vm.reflowable.collectAsStateWithLifecycle()
+    val fixed by vm.fixed.collectAsStateWithLifecycle()
+    val error by vm.error.collectAsStateWithLifecycle()
+    val book by vm.book.collectAsStateWithLifecycle()
+    val locator by vm.current.collectAsStateWithLifecycle()
+    val progress by vm.progress.collectAsStateWithLifecycle()
+    val prefs by library.preferences.collectAsStateWithLifecycle()
+    val bookmarks by vm.bookmarks.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var sheet by remember { mutableStateOf<String?>(null) }
     var more by remember { mutableStateOf(false) }
@@ -138,7 +139,7 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
                 "书签" -> if (bookmarks.isEmpty()) EmptyState("还没有书签", "点击顶部书签按钮保存当前位置。") else LazyColumn { items(bookmarks, key = { it.id }) { mark -> ListItem(headlineContent = { Text(mark.label) }, modifier = Modifier.fillMaxWidth(), leadingContent = { TextButton(onClick = { scope.launch { Locator.fromJSON(JSONObject(mark.locator))?.let { vm.go(it) }; sheet = null } }) { Text("前往") } }, trailingContent = { IconButton(onClick = { vm.deleteBookmark(mark) }) { Icon(Icons.Default.Delete, "删除书签") } }) } }
                 "搜索" -> {
                     var query by remember { mutableStateOf("") }
-                    val results by vm.results.collectAsState(); val searching by vm.searching.collectAsState(); val searchError by vm.searchError.collectAsState()
+                    val results by vm.results.collectAsStateWithLifecycle(); val searching by vm.searching.collectAsStateWithLifecycle(); val searchError by vm.searchError.collectAsStateWithLifecycle()
                     OutlinedTextField(value = query, onValueChange = { query = it }, label = { Text("搜索书中内容") }, singleLine = true, modifier = Modifier.fillMaxWidth(), trailingIcon = { IconButton(onClick = { vm.search(query) }) { Icon(Icons.Default.Search, "开始书内搜索") } })
                     if (searching) LinearProgressIndicator(Modifier.fillMaxWidth())
                     if (searchError != null) Text(searchError.orEmpty(), Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.error)
@@ -154,7 +155,7 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
 
 @Composable
 fun ReaderPreferences(vm: LibraryViewModel, fixed: Boolean = false) {
-    val p by vm.preferences.collectAsState()
+    val p by vm.preferences.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxWidth()) {
         if (fixed) Text("固定版式保留原书排版。")
         else {

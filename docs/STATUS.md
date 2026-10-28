@@ -48,3 +48,12 @@
 - 发布门槛：M5 PR 与 main 的构建、单元测试、lint、R8 检查通过后，才创建唯一 `v0.1.0` tag；tag 工作流生成 preview/debug signed APK、SHA256SUMS 和 GitHub Release。不创建里程碑 tag。
 - 发布入口：[v0.1.0](https://github.com/unfo17/litra-readium/releases/tag/v0.1.0)。未覆盖风险与产品限制见 README“已知限制”。
 - 最后复核补充：短暂数据库提交阶段不可取消，避免已提交书目在导入取消时丢失私有 EPUB；最后一次完整本地检查仍为 8 项 unit / 6 项 device 全通过。R8 压缩产物已用本地 debug 证书签名，实际安装、SAF 导入 Alice 并成功显示第一章正文，无 AndroidRuntime 崩溃记录。
+
+## Post-release hardening — 未发布
+
+- 详情页新增真实元数据标签（自定义分类、语言、格式、文件大小），类型切换仍独立保留。
+- 主页横向卡片、书库双列/列表、搜索和欲读封面补充 `onClickLabel` / 长按语义；完成按钮带可读描述。
+- Compose 状态改用 `collectAsStateWithLifecycle()`，依赖已在项目中显式存在。
+- 移除 `INTERNET` 权限与 `usesCleartextTraffic`；本地 EPUB 的远程资源不再加载，已在 README 说明。
+- 元数据标签与文件大小格式新增单元测试；版本保持 `0.1.0`，不创建 tag 或 Release。
+- 本地 `assembleDebug testDebugUnitTest lintDebug assembleRelease` 通过，10 项单元测试通过；冷启动模拟器后 6 项设备测试全通过（包括 Readium 渲染/搜索）。

@@ -1,6 +1,7 @@
 package io.github.unfo17.litra.data
 
 import androidx.room.*
+import java.util.Locale
 import java.util.UUID
 
 object BookRules {
@@ -32,6 +33,22 @@ data class Book(
 ) {
     val progressLabel: String get() = if (status == "FINISHED") "已读完" else "${BookRules.percent(progress)}%"
     val needsFinish: Boolean get() = status != "FINISHED" && BookRules.percent(progress) == 99
+}
+
+/**
+ * Real metadata tags for the detail screen: custom categories plus actual EPUB metadata.
+ * The kind is deliberately not included because it is edited by the type selector below.
+ */
+fun Book.detailTags(categoryNames: List<String>): List<String> = buildList {
+    addAll(categoryNames.map { it.trim() }.filter { it.isNotEmpty() })
+    language.trim().takeIf { it.isNotEmpty() }?.let { add("语言 $it") }
+    format.trim().takeIf { it.isNotEmpty() }?.let { add(it.uppercase(Locale.ROOT)) }
+    if (this@detailTags.size > 0) add(fileSizeLabel(this@detailTags.size))
+}.distinct()
+
+fun fileSizeLabel(bytes: Long): String {
+    val mb = bytes / 1024.0 / 1024.0
+    return if (mb >= 1.0) String.format(Locale.US, "%.1f MB", mb) else String.format(Locale.US, "%.0f KB", bytes / 1024.0)
 }
 
 @Entity(tableName = "categories", indices = [Index(value = ["name"], unique = true)])

@@ -1,6 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <uses-permission android:name="android.permission.INTERNET" />
-    <application android:name=".LitraApplication" android:label="Litra" android:icon="@drawable/ic_litra" android:theme="@style/Theme.Litra" android:allowBackup="false" android:supportsRtl="true" android:usesCleartextTraffic="true">
+    <application android:name=".LitraApplication" android:label="Litra" android:icon="@drawable/ic_litra" android:theme="@style/Theme.Litra" android:allowBackup="false" android:supportsRtl="true">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
