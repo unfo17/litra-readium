@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.text.HtmlCompat
@@ -107,6 +108,7 @@ fun SettingsScreen(vm: LibraryViewModel, back: () -> Unit, goals: () -> Unit) {
             item { HorizontalDivider(); Text("外观", Modifier.padding(20.dp), style = MaterialTheme.typography.titleMedium) }
             item { FlowRow(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("SYSTEM" to "跟随系统", "LIGHT" to "浅色", "DARK" to "深色").forEach { (id, label) -> FilterChip(selected = prefs.appearance == id, onClick = { vm.textPreference("appearance", id) }, label = { Text(label) }) } } }
             item { ListItem(headlineContent = { Text("阅读器排版") }, supportingContent = { Text("阅读背景独立于 App 外观") }, modifier = Modifier.clickable { reader = true }, leadingContent = { Icon(Icons.Default.TextFields, null) }) }
+            item { ListItem(headlineContent = { Text("点按翻页") }, supportingContent = { Text("阅读页左右两侧点击上一页或下一页") }, trailingContent = { Switch(checked = prefs.tapPaging, onCheckedChange = { vm.flagPreference("tapPaging", it) }, modifier = Modifier.testTag("setting-tap-paging-switch")) }) }
             item { ListItem(headlineContent = { Text("阅读时保持屏幕常亮") }, trailingContent = { Switch(prefs.keepAwake, { vm.flagPreference("awake", it) }) }) }
             item { ListItem(headlineContent = { Text("保存搜索记录") }, trailingContent = { Switch(prefs.rememberSearch, { vm.flagPreference("history", it) }) }) }
             item { ListItem(headlineContent = { Text("清除搜索记录") }, modifier = Modifier.clickable { clear = true }, leadingContent = { Icon(Icons.Default.History, null) }) }

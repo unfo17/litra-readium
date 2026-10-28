@@ -19,6 +19,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.*
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -44,7 +46,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.unfo17.litra.*
 import io.github.unfo17.litra.data.*
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import org.readium.navigator.web.reflowable.*
 import org.readium.navigator.web.reflowable.preferences.ReflowableWebPreferences
@@ -69,6 +73,7 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
     val prefs by library.preferences.collectAsStateWithLifecycle()
     val bookmarks by vm.bookmarks.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
     var chrome by rememberSaveable(id) { mutableStateOf(true) }
     val view = LocalView.current
     val readerDark = prefs.readerTheme == "DARK"
@@ -110,6 +115,7 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
     }
     val controller = reflowable?.controller
     val fixedController = fixed?.controller
+    fun currentPageLocation() = controller?.location?.toLocator() ?: fixedController?.location?.toLocator()
     LaunchedEffect(controller, fixedController, owner, sheet) {
         if ((controller != null || fixedController != null) && sheet == null) owner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             var elapsed = SystemClock.elapsedRealtime()
@@ -133,6 +139,22 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
         }
     }
     val paper = when (prefs.readerTheme) { "DARK" -> Color(0xFF1C1B19); "LIGHT" -> Color.White; else -> Color(0xFFFAF4E8) }
+    val previousPage = {
+        val before = currentPageLocation()
+        if (before != null) scope.launch {
+            vm.previous()
+            val moved = withTimeoutOrNull(1_500) { snapshotFlow { currentPageLocation() }.first { it != before } }
+            if (moved != null) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
+    }
+    val nextPage = {
+        val before = currentPageLocation()
+        if (before != null) scope.launch {
+            vm.next()
+            val moved = withTimeoutOrNull(1_500) { snapshotFlow { currentPageLocation() }.first { it != before } }
+            if (moved != null) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
+    }
     Box(Modifier.fillMaxSize().background(paper).testTag("reader-page").semantics {
         customActions = listOf(CustomAccessibilityAction(if (chrome) "隐藏阅读工具栏" else "显示阅读工具栏") { chrome = !chrome; true })
     }) {
@@ -142,11 +164,12 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
             reflowable != null -> key(reflowable) { ReflowableWebRendition(reflowable!!, Modifier.fillMaxSize(), windowInsets = WindowInsets(top = 28.dp, bottom = 28.dp)) }
             fixed != null -> key(fixed) { FixedWebRendition(fixed!!, Modifier.fillMaxSize()) }
         }
-        if (publication != null) Box(
-            Modifier.align(Alignment.Center).fillMaxWidth(.36f).fillMaxHeight(.30f)
-                .background(Color.Transparent).testTag("reader-center-tap-zone")
-                .clickable(onClickLabel = if (chrome) "隐藏阅读工具栏" else "显示阅读工具栏", indication = null,
-                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }) { chrome = !chrome }
+        if (publication != null) ReaderTapZones(
+            tapPagingEnabled = prefs.tapPaging && (controller != null || fixedController != null),
+            onPreviousPage = previousPage,
+            onNextPage = nextPage,
+            onToggleChrome = { chrome = !chrome },
+            chromeVisible = chrome,
         )
         AnimatedVisibility(chrome, modifier = Modifier.align(Alignment.TopCenter), enter = fadeIn() + slideInVertically { -it }, exit = fadeOut() + slideOutVertically { -it }) {
             Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(paper, paper.copy(alpha = .96f), paper.copy(alpha = .85f)))).testTag("reader-top")) {
@@ -197,6 +220,32 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
             }
             Spacer(Modifier.height(28.dp))
         }
+    }
+}
+
+@Composable
+internal fun ReaderTapZones(
+    tapPagingEnabled: Boolean,
+    onPreviousPage: () -> Unit,
+    onNextPage: () -> Unit,
+    onToggleChrome: () -> Unit,
+    chromeVisible: Boolean,
+) {
+    Box(Modifier.fillMaxSize()) {
+        if (tapPagingEnabled) {
+            Box(Modifier.align(Alignment.CenterStart).fillMaxWidth(.318f).fillMaxHeight()
+                .testTag("reader-left-tap-zone")
+                .semantics { contentDescription = "点击上一页" }
+                .clickable(indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, onClick = onPreviousPage))
+            Box(Modifier.align(Alignment.CenterEnd).fillMaxWidth(.318f).fillMaxHeight()
+                .testTag("reader-right-tap-zone")
+                .semantics { contentDescription = "点击下一页" }
+                .clickable(indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, onClick = onNextPage))
+        }
+        Box(Modifier.align(Alignment.Center).fillMaxWidth(.36f).fillMaxHeight(.30f)
+            .background(Color.Transparent).testTag("reader-center-tap-zone")
+            .clickable(onClickLabel = if (chromeVisible) "隐藏阅读工具栏" else "显示阅读工具栏", indication = null,
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, onClick = onToggleChrome))
     }
 }
 
