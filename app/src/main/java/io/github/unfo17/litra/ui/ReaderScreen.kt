@@ -14,6 +14,9 @@ import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.animation.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.Brush
@@ -75,8 +78,12 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
     var chrome by rememberSaveable(id) { mutableStateOf(true) }
+    var liveBrightness by remember(id) { mutableFloatStateOf(Float.NaN) }
+    var brightnessHud by remember(id) { mutableStateOf<Float?>(null) }
+    LaunchedEffect(prefs.brightness) { liveBrightness = Float.NaN }
     val view = LocalView.current
     val readerDark = prefs.readerTheme == "DARK"
+    val systemBrightness = remember(context) { (runCatching { android.provider.Settings.System.getInt(context.contentResolver, android.provider.Settings.System.SCREEN_BRIGHTNESS) }.getOrDefault(128) / 255f).coerceIn(.05f, 1f) }
     DisposableEffect(activity) {
         val window = activity?.window
         val oldBrightness = window?.attributes?.screenBrightness ?: -1f
@@ -89,7 +96,7 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
     }
     SideEffect {
         activity?.window?.let { w ->
-            w.attributes = w.attributes.apply { screenBrightness = prefs.brightness.toFloat().coerceIn(-1f, 1f) }
+            w.attributes = w.attributes.apply { screenBrightness = if (liveBrightness.isFinite()) liveBrightness else prefs.brightness.toFloat().coerceIn(-1f, 1f) }
             WindowCompat.getInsetsController(w, view).apply {
                 isAppearanceLightStatusBars = !readerDark
                 isAppearanceLightNavigationBars = !readerDark
@@ -166,11 +173,24 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
         }
         if (publication != null) ReaderTapZones(
             tapPagingEnabled = prefs.tapPaging && (controller != null || fixedController != null),
+            brightnessGestureEnabled = prefs.leftBrightnessGesture && (controller != null || fixedController != null),
+            brightness = if (liveBrightness.isFinite()) liveBrightness else prefs.brightness.toFloat().takeIf { it >= 0f } ?: systemBrightness,
+            onBrightnessGestureStart = { brightnessHud = if (liveBrightness.isFinite()) liveBrightness else prefs.brightness.toFloat().takeIf { it >= 0f } ?: systemBrightness },
+            onBrightnessChange = { value ->
+                liveBrightness = value
+                activity?.window?.let { window -> window.attributes = window.attributes.apply { screenBrightness = value } }
+                brightnessHud = value
+            },
+            onBrightnessGestureEnd = { value ->
+                if (value.isFinite()) library.action { library.preferencesRepository.number("brightness", value.toDouble()) }
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            },
             onPreviousPage = previousPage,
             onNextPage = nextPage,
             onToggleChrome = { chrome = !chrome },
             chromeVisible = chrome,
         )
+        ReaderBrightnessHud(brightnessHud, onDismiss = { brightnessHud = null }, modifier = Modifier.align(Alignment.CenterStart).padding(start = 20.dp))
         AnimatedVisibility(chrome, modifier = Modifier.align(Alignment.TopCenter), enter = fadeIn() + slideInVertically { -it }, exit = fadeOut() + slideOutVertically { -it }) {
             Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(paper, paper.copy(alpha = .96f), paper.copy(alpha = .85f)))).testTag("reader-top")) {
         PageBar(book?.title ?: "阅读器", leave) {
@@ -224,19 +244,102 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
 }
 
 @Composable
+internal fun ReaderBrightnessHud(brightness: Float?, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+    LaunchedEffect(brightness) { if (brightness != null) { delay(900); onDismiss() } }
+    AnimatedVisibility(brightness != null, modifier = modifier, enter = fadeIn(), exit = fadeOut()) {
+        Surface(color = MaterialTheme.colorScheme.inverseSurface, contentColor = MaterialTheme.colorScheme.inverseOnSurface, shape = MaterialTheme.shapes.large, tonalElevation = 4.dp) {
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Icon(Icons.Default.WbSunny, contentDescription = null)
+                Text("${(((brightness ?: .5f).coerceIn(.05f, 1f) * 100).toInt())}%", style = MaterialTheme.typography.titleMedium)
+            }
+        }
+    }
+}
+
+@Composable
 internal fun ReaderTapZones(
     tapPagingEnabled: Boolean,
+    brightnessGestureEnabled: Boolean = true,
+    brightness: Float = .5f,
+    onBrightnessGestureStart: () -> Unit = {},
+    onBrightnessChange: (Float) -> Unit = {},
+    onBrightnessGestureEnd: (Float) -> Unit = {},
     onPreviousPage: () -> Unit,
     onNextPage: () -> Unit,
     onToggleChrome: () -> Unit,
     chromeVisible: Boolean,
 ) {
+    val currentBrightness by rememberUpdatedState(brightness)
     Box(Modifier.fillMaxSize()) {
-        if (tapPagingEnabled) {
+        if (tapPagingEnabled || brightnessGestureEnabled) {
             Box(Modifier.align(Alignment.CenterStart).fillMaxWidth(.318f).fillMaxHeight()
                 .testTag("reader-left-tap-zone")
-                .semantics { contentDescription = "点击上一页" }
-                .clickable(indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, onClick = onPreviousPage))
+                .pointerInput(tapPagingEnabled) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        var previous = down.position
+                        var moved = false
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            val delta = change.position - previous
+                            previous = change.position
+                            if (!moved && maxOf(kotlin.math.abs(change.position.x - down.position.x), kotlin.math.abs(change.position.y - down.position.y)) > viewConfiguration.touchSlop) {
+                                moved = true
+                            }
+                            if (moved && delta != androidx.compose.ui.geometry.Offset.Zero) change.consume()
+                            if (!change.pressed) {
+                                if (!moved && tapPagingEnabled) onPreviousPage()
+                                break
+                            }
+                        }
+                    }
+                }
+                .semantics {
+                    contentDescription = if (tapPagingEnabled) "点击上一页" else "左侧滑动调亮度"
+                    if (tapPagingEnabled) onClick(label = "上一页") { onPreviousPage(); true }
+                }) {
+                if (brightnessGestureEnabled) Box(Modifier.align(Alignment.CenterStart).fillMaxWidth(.12f / .318f).fillMaxHeight()
+                    .testTag("reader-left-brightness-zone")
+                    .semantics { contentDescription = "左侧滑动调亮度" }
+                    .pointerInput(brightnessGestureEnabled) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            var previous = down.position
+                            var totalX = 0f
+                            var totalY = 0f
+                            var dragging = false
+                            var canceled = false
+                            var value = currentBrightness.coerceIn(.05f, 1f)
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                val delta = change.position - previous
+                                previous = change.position
+                                totalX += delta.x
+                                totalY += delta.y
+                                if (!dragging && !canceled && kotlin.math.abs(totalY) > viewConfiguration.touchSlop && kotlin.math.abs(totalY) > kotlin.math.abs(totalX)) {
+                                    dragging = true
+                                    onBrightnessGestureStart()
+                                    value = adjustReaderBrightness(value, totalY, size.height.toFloat())
+                                    onBrightnessChange(value)
+                                    change.consume()
+                                } else if (!dragging && maxOf(kotlin.math.abs(totalX), kotlin.math.abs(totalY)) > viewConfiguration.touchSlop) canceled = true
+                                else if (dragging && delta.y != 0f) {
+                                    value = adjustReaderBrightness(value, delta.y, size.height.toFloat())
+                                    onBrightnessChange(value)
+                                    change.consume()
+                                }
+                                if (!change.pressed) {
+                                    if (dragging) onBrightnessGestureEnd(value)
+                                    break
+                                }
+                            }
+                        }
+                    })
+            }
+        }
+        if (tapPagingEnabled) {
             Box(Modifier.align(Alignment.CenterEnd).fillMaxWidth(.318f).fillMaxHeight()
                 .testTag("reader-right-tap-zone")
                 .semantics { contentDescription = "点击下一页" }
@@ -249,11 +352,17 @@ internal fun ReaderTapZones(
     }
 }
 
+internal fun adjustReaderBrightness(current: Float, fingerDeltaY: Float, areaHeight: Float): Float {
+    if (areaHeight <= 0f || fingerDeltaY == 0f) return current.coerceIn(.05f, 1f)
+    return (current - fingerDeltaY / areaHeight * .95f).coerceIn(.05f, 1f)
+}
+
 @Composable
 fun ReaderPreferences(vm: LibraryViewModel, fixed: Boolean = false) {
     val p by vm.preferences.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxWidth()) {
         Text("屏幕亮度", style = MaterialTheme.typography.titleSmall)
+        Row(verticalAlignment = Alignment.CenterVertically) { Text("左侧滑动调亮度", Modifier.weight(1f)); Switch(p.leftBrightnessGesture, { vm.flagPreference("leftBrightnessGesture", it) }, modifier = Modifier.testTag("setting-left-brightness-gesture-switch")) }
         Row(verticalAlignment = Alignment.CenterVertically) { Text("跟随系统", Modifier.weight(1f)); Switch(p.brightness < 0, { vm.action { vm.preferencesRepository.number("brightness", if (it) -1.0 else .5) } }) }
         if (p.brightness >= 0) Slider(p.brightness.toFloat(), { vm.action { vm.preferencesRepository.number("brightness", it.toDouble()) } }, valueRange = .05f..1f)
         if (fixed) Text("固定版式保留原书排版。")

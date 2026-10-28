@@ -18,6 +18,7 @@ class SettingsFlowTest {
         compose.runOnUiThread { vm = ViewModelProvider(compose.activity)[LibraryViewModel::class.java] }
         val original = vm.preferences.value.appearance
         val originalTapPaging = vm.preferences.value.tapPaging
+        val originalLeftBrightness = vm.preferences.value.leftBrightnessGesture
         try {
             compose.onNodeWithTag("tab-search").performClick()
             compose.onNodeWithContentDescription("设置").performClick()
@@ -42,10 +43,17 @@ class SettingsFlowTest {
             compose.onNodeWithContentDescription("返回").performClick()
             compose.onNodeWithText("阅读器排版").performClick()
             compose.onNodeWithText("连续滚动").assertExists()
+            compose.onNodeWithTag("setting-left-brightness-gesture-switch").assertIsOn().performClick()
+            compose.waitUntil(5000) { !vm.preferences.value.leftBrightnessGesture }
+            compose.onNodeWithText("完成").performClick()
+            compose.onNodeWithText("阅读器排版").performClick()
+            compose.onNodeWithTag("setting-left-brightness-gesture-switch").assertIsOff()
+            compose.onNodeWithTag("setting-left-brightness-gesture-switch").performClick()
+            compose.waitUntil(5000) { vm.preferences.value.leftBrightnessGesture == originalLeftBrightness }
             compose.onNodeWithText("完成").performClick()
             compose.onNodeWithText("开源许可").performScrollTo().performClick()
             compose.waitUntil(15000) { compose.onAllNodesWithText("Litra — third-party notices", substring = true).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("关闭").performClick()
-        } finally { runBlocking { vm.preferencesRepository.text("appearance", original); vm.preferencesRepository.flag("tapPaging", originalTapPaging) } }
+        } finally { runBlocking { vm.preferencesRepository.text("appearance", original); vm.preferencesRepository.flag("tapPaging", originalTapPaging); vm.preferencesRepository.flag("leftBrightnessGesture", originalLeftBrightness) } }
     }
 }

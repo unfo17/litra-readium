@@ -13,7 +13,7 @@
 - 双列书库、列表、排序、欲读清单、自定义分类、独立已读完时间线。
 - 详情页可编辑书名、作者与图书/漫画类型；修改保存为 Litra 本地覆盖，不改写原始 EPUB。
 - Readium 重排与固定版式 EPUB；目录、正文搜索、书签、完整 Locator 保存/恢复。
-- 阅读页中央点按可沉浸阅读；两侧点按翻页可在设置关闭，排版、系统衬线/无衬线、阅读亮度、背景主题均跨书保存。
+- 阅读页中央点按可沉浸阅读；两侧点按翻页可在设置关闭。默认开启的左侧 12% 竖向拖动可实时调节并保存 5%–100% 屏幕亮度，带短暂太阳百分比提示；在“设置 → 阅读器排版”可关闭，关闭后左侧恢复点按翻页。排版、系统衬线/无衬线、阅读亮度、背景主题均跨书保存。
 - 阅读进度最高 99%；不会自动完成。主页 99% 卡片只显示“点击标记读完”；手动完成后，重读仍为已读完。
 - 空的继续阅读、欲读、之前读过区块自动隐藏；阅读目标与今年读过保持可见。搜索无历史时不渲染记录区。
 - 每天/每周/每月阅读目标，前台计时、周期打卡和历史目标快照。
@@ -29,6 +29,8 @@ API 35 模拟器实机截图；画面使用本地生成的演示 EPUB，不随�
 <img src="docs/screenshots/reader.png" width="180" alt="阅读工具栏显示"> <img src="docs/screenshots/reader-immersive.png" width="180" alt="中央点按后沉浸阅读"> <img src="docs/screenshots/settings.png" width="180" alt="设置与备份恢复入口">
 
 <img src="docs/screenshots/reader-tap-zones.png" width="180" alt="API 35 模拟器上的真实 EPUB 阅读页"> <img src="docs/screenshots/settings-tap-paging.png" width="180" alt="点按翻页设置默认开启">
+
+<img src="docs/screenshots/reader-brightness-gesture.png" width="180" alt="API 35 模拟器真实 EPUB 上滑亮度 HUD">
 
 <img src="docs/screenshots/metadata-edit-detail.png" width="180" alt="API 35 模拟器上编辑后持久化的图书详情">
 
@@ -53,7 +55,7 @@ sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0' 'platform-tools'
 
 技术版本：Kotlin 2.4.20、AGP 9.3.1、Gradle 9.7、compile/target SDK 37、minSdk 24；Room + KSP、Hilt、Coil、DataStore、Navigation Compose。为匹配 Kotlin 2.4 与当前 Hilt/KSP，显式使用 Kotlin Android 插件和 AGP 的兼容 DSL；配置已在本机和 Actions 验证。
 
-本地验证包含 17 项单元测试和 12 项 API 35 设备测试：99%/完成状态、八种主页区块组合、打开方式导入与查重、备份清单/冲突/zip-slip、包含元数据覆盖的两本书备份往返与合并、详情编辑和重启后持久化、中央点按显隐工具栏、真实 EPUB 左右翻页与书首/书末边界、点按翻页设置、Readium 渲染/位置恢复/搜索、固定版式。CI 的 push/PR 执行 debug、单元测试、lint 和 R8 release；当前开发轮不创建新 tag 或 Release，版本仍为 `0.1.0`。
+本地验证包含 18 项单元测试和 12 项 API 35 设备测试：99%/完成状态、八种主页区块组合、打开方式导入与查重、备份清单/冲突/zip-slip、包含元数据覆盖的两本书备份往返与合并、详情编辑和重启后持久化、中央点按显隐工具栏、真实 EPUB 左右翻页与书首/书末边界、左缘亮度拖动/不误翻页/亮度持久化、设置开关持久化、Readium 渲染/位置恢复/搜索、固定版式。CI 的 push/PR 执行 debug、单元测试、lint 和 R8 release；当前开发轮不创建新 tag 或 Release，版本仍为 `0.1.0`。
 
 ## 架构与数据
 
@@ -69,7 +71,7 @@ sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0' 'platform-tools'
 - V1 仅支持无 DRM EPUB；PDF/有声书入口显示暂不支持，不导入这些格式。
 - 应用不申请网络权限；EPUB 中引用的远程图片、字体或脚本不会加载，仅本地资源可用。
 - Readium 3.4.0 Compose 导航器为实验 API；固定版式保留原书排版，字号等重排选项不适用。
-- WebView 没有可靠转发中心点按，因此阅读页中央 36% 宽、30% 高的透明区域负责显隐工具栏；该小区域会截获文本选择和链接点按。默认开启的左右 31.8% 全高区域分别用于上一页/下一页，会截获这些区域内的文本选择和链接；可在“设置 → 点按翻页”关闭，只保留中央显隐区域。
+- WebView 没有可靠转发中心点按，因此阅读页中央 36% 宽、30% 高的透明区域负责显隐工具栏；该小区域会截获文本选择和链接点按。默认开启的左右 31.8% 全高区域分别用于上一页/下一页，会截获这些区域内的文本选择和链接；其中左侧最边缘 12% 的竖向拖动用于亮度调整，关闭“设置 → 阅读器排版 → 左侧滑动调亮度”后，左侧恢复点按翻页。手势区与工具栏在显示时重叠的部分仍由工具栏接收操作。
 - 自定义分类不能使用默认藏书名称。单文件导入上限 512 MB；书内搜索每次最多显示 500 个结果，可缩小关键词范围。
 - 异常杀进程可能丢失最后不足 15 秒的阅读计时；正常暂停会补记。目标范围为 1–1440 分钟。
 - 设备自动化基于 API 35 ARM64 模拟器；尚未覆盖所有厂商 WebView、低内存真机或全部第三方 EPUB 排版。
