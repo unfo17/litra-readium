@@ -10,6 +10,12 @@ object BookRules {
     fun readingStatus(current: String): String = if (current == "FINISHED") "FINISHED" else "READING"
 }
 
+object BookMetadataRules {
+    fun title(value: String): String = value.trim().also { require(it.isNotEmpty()) { "书名不能为空" } }
+    fun authors(value: String): String = value.trim()
+    fun kind(value: String): String = value.also { require(it == "图书" || it == "漫画") { "类型只能是图书或漫画" } }
+}
+
 @Entity(tableName = "books", indices = [Index(value = ["hash"], unique = true)])
 data class Book(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),

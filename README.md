@@ -11,6 +11,7 @@
 - SAF 多文件导入 EPUB 2/3，私有文件存储、SHA-256 查重、真实元数据和封面。
 - 从文件管理器或分享菜单用“打开方式”导入 EPUB；相同文件会打开书库已有条目。
 - 双列书库、列表、排序、欲读清单、自定义分类、独立已读完时间线。
+- 详情页可编辑书名、作者与图书/漫画类型；修改保存为 Litra 本地覆盖，不改写原始 EPUB。
 - Readium 重排与固定版式 EPUB；目录、正文搜索、书签、完整 Locator 保存/恢复。
 - 阅读页中央点按可沉浸阅读；两侧点按翻页可在设置关闭，排版、系统衬线/无衬线、阅读亮度、背景主题均跨书保存。
 - 阅读进度最高 99%；不会自动完成。主页 99% 卡片只显示“点击标记读完”；手动完成后，重读仍为已读完。
@@ -28,6 +29,8 @@ API 35 模拟器实机截图；画面使用本地生成的演示 EPUB，不随�
 <img src="docs/screenshots/reader.png" width="180" alt="阅读工具栏显示"> <img src="docs/screenshots/reader-immersive.png" width="180" alt="中央点按后沉浸阅读"> <img src="docs/screenshots/settings.png" width="180" alt="设置与备份恢复入口">
 
 <img src="docs/screenshots/reader-tap-zones.png" width="180" alt="API 35 模拟器上的真实 EPUB 阅读页"> <img src="docs/screenshots/settings-tap-paging.png" width="180" alt="点按翻页设置默认开启">
+
+<img src="docs/screenshots/metadata-edit-detail.png" width="180" alt="API 35 模拟器上编辑后持久化的图书详情">
 
 ## 安装与使用
 
@@ -50,7 +53,7 @@ sdkmanager 'platforms;android-37.0' 'build-tools;36.0.0' 'platform-tools'
 
 技术版本：Kotlin 2.4.20、AGP 9.3.1、Gradle 9.7、compile/target SDK 37、minSdk 24；Room + KSP、Hilt、Coil、DataStore、Navigation Compose。为匹配 Kotlin 2.4 与当前 Hilt/KSP，显式使用 Kotlin Android 插件和 AGP 的兼容 DSL；配置已在本机和 Actions 验证。
 
-本地验证包含 16 项单元测试和 11 项 API 35 设备测试：99%/完成状态、八种主页区块组合、打开方式导入与查重、备份清单/冲突/zip-slip、两本书完整备份往返、中央点按显隐工具栏、真实 EPUB 左右翻页与书首/书末边界、点按翻页设置、Readium 渲染/位置恢复/搜索、固定版式。CI 的 push/PR 执行 debug、单元测试、lint 和 R8 release；当前开发轮不创建新 tag 或 Release，版本仍为 `0.1.0`。
+本地验证包含 17 项单元测试和 12 项 API 35 设备测试：99%/完成状态、八种主页区块组合、打开方式导入与查重、备份清单/冲突/zip-slip、包含元数据覆盖的两本书备份往返与合并、详情编辑和重启后持久化、中央点按显隐工具栏、真实 EPUB 左右翻页与书首/书末边界、点按翻页设置、Readium 渲染/位置恢复/搜索、固定版式。CI 的 push/PR 执行 debug、单元测试、lint 和 R8 release；当前开发轮不创建新 tag 或 Release，版本仍为 `0.1.0`。
 
 ## 架构与数据
 

@@ -65,6 +65,7 @@ class LibraryViewModel @Inject constructor(val repository: LibraryRepository, va
         } finally { importing.value = false }
     }
     fun finish(book: Book) = action { repository.finish(book.id) }
+    fun updateMetadata(book: Book, title: String, authors: String, kind: String) = action { repository.updateMetadata(book.id, title, authors, kind) }
     fun want(book: Book) = action { repository.dao.want(book.id) }
     fun delete(book: Book) = action { repository.delete(book) }
     fun category(name: String) = action { repository.category(name) }

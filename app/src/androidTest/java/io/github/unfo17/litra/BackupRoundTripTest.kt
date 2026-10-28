@@ -26,6 +26,7 @@ class BackupRoundTripTest {
             val books = fixtures.map { repo.import(Uri.fromFile(it)) }
             books.forEach { created += it.fileName; it.coverName?.let(created::add) }
             val first = books.first()
+            repo.updateMetadata(first.id, "Backup Title", "Backup Author", "漫画")
             repo.progress(first.id, "{\"href\":\"EPUB/chapter.xhtml\"}", .99); repo.finish(first.id)
             val saved = db.library().book(first.id)!!
             db.library().category(Category("category", "Test collection"))
@@ -43,6 +44,7 @@ class BackupRoundTripTest {
             assertEquals(2, restored.size)
             val done = restored.first { it.hash == first.hash }
             assertEquals("FINISHED", done.status); assertEquals(saved.locator, done.locator); assertEquals(saved.finishedAt, done.finishedAt)
+            assertEquals("Backup Title", done.title); assertEquals("Backup Author", done.authors); assertEquals("漫画", done.kind)
             assertEquals(1, db.library().memberships().first().size); assertEquals(1, db.library().allBookmarks().size)
             assertEquals(1, db.library().sessions().first().size); assertEquals(60, db.library().goals().first().single().minutes)
             assertEquals(1, db.library().allCheckIns().size); assertEquals(1, db.library().history().first().size)
@@ -51,6 +53,7 @@ class BackupRoundTripTest {
                 val pub = repo.readium.open(repo.file(b.fileName)); try { assertTrue(pub.readingOrder.isNotEmpty()) } finally { pub.close() }
             }
             repo.progress(done.id, "{\"href\":\"EPUB/chapter.xhtml\",\"locations\":{\"totalProgression\":0.4}}", .4)
+            repo.updateMetadata(done.id, "Local after backup", "Local Author", "图书")
             val newer = db.library().book(done.id)!!
             backup.restore(Uri.fromFile(archive)) {}
             assertEquals(newer, db.library().book(done.id))

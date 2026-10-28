@@ -37,6 +37,7 @@ fun DetailScreen(vm: LibraryViewModel, book: Book?, loading: Boolean, back: () -
     val members by vm.memberships.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val background = MaterialTheme.colorScheme.surface
+    var editMetadata by remember(book?.id) { mutableStateOf(false) }
     Scaffold(contentWindowInsets = WindowInsets(0), floatingActionButton = { if (book != null) ExtendedFloatingActionButton(modifier = Modifier.semantics { contentDescription = "阅读《${book.title}》" }, onClick = { read(book) }, icon = { Icon(Icons.Default.MenuBook, null) }, text = { Text("阅读") }) }) { padding ->
         if (book == null) Column(Modifier.statusBarsPadding().padding(padding)) { PageBar("图书信息", back); if (loading) CircularProgressIndicator() else EmptyState("图书已移除", "返回书库选择其他图书。") }
         else {
@@ -58,8 +59,11 @@ fun DetailScreen(vm: LibraryViewModel, book: Book?, loading: Boolean, back: () -
                         if (book.authors.isNotBlank()) Text(book.authors, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
                         Text(book.progressLabel, color = MaterialTheme.colorScheme.primary)
                         if (tags.isNotEmpty()) FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) { tags.forEach { MetadataTag(it) } }
-                        Text("类型", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("图书", "漫画").forEach { kind -> FilterChip(selected = book.kind == kind, onClick = { vm.action { vm.repository.dao.kind(book.id, kind) } }, label = { Text(kind) }) } }
+                        Text("类型 · ${book.kind}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        OutlinedButton(onClick = { editMetadata = true }, modifier = Modifier.testTag("edit-book-metadata")) {
+                            Icon(Icons.Default.Edit, null); Spacer(Modifier.width(8.dp)); Text("编辑信息")
+                        }
+                        Text("修改仅保存在 Litra 中，不会更改原始 EPUB 文件。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                         RectangularCard("内容简介", if (book.description.isBlank()) "这本 EPUB 未提供内容简介。" else HtmlCompat.fromHtml(book.description, HtmlCompat.FROM_HTML_MODE_COMPACT).toString())
                         RectangularCard("出版信息", listOfNotNull(book.publisher.takeIf { it.isNotBlank() }?.let { "出版者：$it" }, book.language.takeIf { it.isNotBlank() }?.let { "语言：$it" }, "格式：${book.format}", book.size.takeIf { it > 0 }?.let { "文件大小：${fileSizeLabel(it)}" }).joinToString("\n"))
                         TextButton(onClick = {
@@ -71,6 +75,34 @@ fun DetailScreen(vm: LibraryViewModel, book: Book?, loading: Boolean, back: () -
             }
         }
     }
+    if (book != null && editMetadata) EditBookMetadataDialog(book, onDismiss = { editMetadata = false }, onSave = { title, authors, kind -> vm.updateMetadata(book, title, authors, kind); editMetadata = false })
+}
+
+@Composable
+private fun EditBookMetadataDialog(book: Book, onDismiss: () -> Unit, onSave: (String, String, String) -> Unit) {
+    var title by remember(book.id) { mutableStateOf(book.title) }
+    var authors by remember(book.id) { mutableStateOf(book.authors) }
+    var kind by remember(book.id) { mutableStateOf(book.kind.takeIf { it == "漫画" } ?: "图书") }
+    val titleError = title.isBlank()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("编辑图书信息") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("书名") }, singleLine = true, isError = titleError, supportingText = { if (titleError) Text("书名不能为空") }, modifier = Modifier.fillMaxWidth().testTag("edit-book-title"))
+                OutlinedTextField(value = authors, onValueChange = { authors = it }, label = { Text("作者") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("edit-book-authors"))
+                Text("类型", style = MaterialTheme.typography.labelLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("图书", "漫画").forEach { option ->
+                        FilterChip(selected = kind == option, onClick = { kind = option }, label = { Text(option) }, modifier = Modifier.testTag("edit-book-kind-$option"))
+                    }
+                }
+                Text("这些修改只覆盖 Litra 中显示的信息，不会改写原始 EPUB。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        confirmButton = { TextButton(enabled = !titleError, onClick = { onSave(title, authors, kind) }, modifier = Modifier.testTag("save-book-metadata")) { Text("保存") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+    )
 }
 
 @Composable

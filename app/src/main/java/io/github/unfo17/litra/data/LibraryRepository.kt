@@ -77,6 +77,13 @@ class LibraryRepository @Inject constructor(@ApplicationContext private val cont
     }
     suspend fun progress(id: String, json: String, progression: Double) = dao.saveProgress(id, json, BookRules.progress(progression), System.currentTimeMillis())
     suspend fun finish(id: String) = dao.finish(id, System.currentTimeMillis())
+    suspend fun updateMetadata(id: String, title: String, authors: String, kind: String) {
+        val safeTitle = BookMetadataRules.title(title)
+        val safeAuthors = BookMetadataRules.authors(authors)
+        val safeKind = BookMetadataRules.kind(kind)
+        require(dao.book(id) != null) { "图书已移除" }
+        dao.updateMetadata(id, safeTitle, safeAuthors, safeKind)
+    }
     suspend fun category(name: String) {
         val value = name.trim().take(60)
         require(value.isNotEmpty()) { "请输入分类名称" }
