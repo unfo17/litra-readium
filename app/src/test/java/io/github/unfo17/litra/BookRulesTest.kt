@@ -32,4 +32,12 @@ class BookRulesTest {
         assertTrue(book.detailTags(emptyList()).isEmpty())
         assertEquals("1 KB", fileSizeLabel(1024))
     }
+    @Test fun editableMetadataIsTrimmedAndRestrictedToSupportedKinds() {
+        assertEquals("New title", BookMetadataRules.title("  New title  "))
+        assertTrue(runCatching { BookMetadataRules.title(" \n ") }.isFailure)
+        assertEquals("", BookMetadataRules.authors("  "))
+        assertEquals("漫画", BookMetadataRules.kind("漫画"))
+        assertEquals("图书", BookMetadataRules.kind("图书"))
+        assertTrue(runCatching { BookMetadataRules.kind("PDF") }.isFailure)
+    }
 }

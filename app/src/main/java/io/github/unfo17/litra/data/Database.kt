@@ -19,7 +19,7 @@ interface LibraryDao {
     suspend fun saveProgress(id: String, locator: String, progress: Double, now: Long)
     @Query("UPDATE books SET status = 'FINISHED', finishedAt = COALESCE(finishedAt, :now) WHERE id = :id") suspend fun finish(id: String, now: Long)
     @Query("UPDATE books SET status = 'WANT_TO_READ' WHERE id = :id AND status != 'FINISHED'") suspend fun want(id: String)
-    @Query("UPDATE books SET kind = :kind WHERE id = :id") suspend fun kind(id: String, kind: String)
+    @Query("UPDATE books SET title = :title, authors = :authors, kind = :kind WHERE id = :id") suspend fun updateMetadata(id: String, title: String, authors: String, kind: String)
     @Delete suspend fun delete(book: Book)
     @Query("SELECT * FROM categories ORDER BY name") fun categories(): Flow<List<Category>>
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun category(category: Category)
