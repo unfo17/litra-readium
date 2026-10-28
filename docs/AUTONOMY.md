@@ -38,29 +38,35 @@ This project runs a recurring, guarded improvement loop.
 - Performance: startup, large library (500+ books), cover thumbnails, baseline profile.
 - Release: after human approval, one `v0.2.0` release; no intermediate versions.
 
-## Supervisor gate (mandatory)
+## Acceptance ownership
 
-The supervising agent must not simply trust GPT's final report. Before merging:
+The task director (the agent reading this policy) only:
 
-1. Define a concrete user-visible acceptance criterion **before** starting GPT.
-2. Inspect the actual diff and changed files; reject placeholders, TODO-only work, or unrelated rewrites.
-3. Run/confirm unit tests, lint, R8, and connected tests for UI/reader changes.
-4. For UI work, install the APK and inspect real emulator screenshots; for reader work, open a real EPUB.
-5. Verify existing product rules (99%/FINISHED, type, progress placement, backup safety).
-6. If the result is superficial or unverified, send it back to GPT with specific defects; allow at most two rework loops, then abandon the run.
-7. Merge only after the gate passes. Append the result to `docs/RUN_LOG.md` with PR, commit, evidence and status.
-8. A run that produces only audits/notes is logged as `no-output`; do not pretend it is a delivered improvement.
+1. defines one concrete, user-visible acceptance goal;
+2. dispatches it to GPT/Codex;
+3. tracks the result and reports it.
 
-Quota should be spent on real, verified outcomes, not on activity reports. If there is no valuable work, skip the GPT call.
+GPT owns implementation **and acceptance**:
+
+- run unit/lint/R8/connected tests as appropriate;
+- inspect the diff for placeholders/TODO/unrelated rewrites;
+- install the APK and capture/inspect real screenshots for UI work;
+- open a real EPUB for reader work;
+- verify the existing product rules;
+- use a second GPT/Codex pass for independent review if useful;
+- merge only after its own acceptance evidence is green;
+- append the result to `docs/RUN_LOG.md` with PR, commit, test evidence and screenshots.
+
+The task director must not re-run the acceptance suite or duplicate the review. If GPT's report lacks evidence, send it back; do not verify it personally.
 
 ## Each run
 
 1. Inspect `git status`, `main`, open issues/PRs, latest Release, CI.
 2. Pick the highest-priority item that can be completed end-to-end.
-3. Give GPT/Codex a focused goal; use `gpt-6-luna` if `gpt-6.1-sol` is at capacity.
-4. Implement, test (unit + lint + R8 + connected when possible), update docs.
-5. Commit → PR → CI → merge.
-6. Report: change, tests, PR, remaining risk, next candidate.
+3. Define a concrete acceptance target and dispatch it to GPT/Codex; use `gpt-6-luna` if `gpt-6.1-sol` is at capacity.
+4. GPT implements, tests, accepts, commits, opens PR, waits for CI, merges.
+5. GPT updates `docs/RUN_LOG.md`.
+6. Report GPT's outcome/evidence, PR, remaining risk and next candidate. Do not re-verify.
 
 ## Release policy
 
