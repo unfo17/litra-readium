@@ -7,6 +7,7 @@ Every autonomous tick must leave a verifiable outcome. GPT owns implementation, 
 | Date | Goal / acceptance | Outcome | Evidence | PR / commit | Status |
 |---|---|---|---|---|---|
 | 2026-10-28 | Reader chrome, external open, backup/restore, home empty modules | UI + 4 features shipped | 15 unit / 10 device / lint / R8 / screenshots | #9 / `23dcd5b` | merged; unreleased |
+| 2026-10-28 | Reader edge tap paging | Added persisted default-on setting, non-overlapping left/right page taps, center toolbar toggle retained, haptic only after a real page move | 16 unit tests; 11/11 API 35 connected tests with real EPUB (previous/next, book boundaries, center toggle, setting); assembleDebug, lint, R8 release; `docs/screenshots/reader-tap-zones.png`, `docs/screenshots/settings-tap-paging.png` | [#10](https://github.com/unfo17/litra-readium/pull/10) / `a4acbc5` | CI green |
 
 ## Rules
 
