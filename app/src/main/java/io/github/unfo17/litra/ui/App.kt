@@ -1,5 +1,6 @@
 package io.github.unfo17.litra.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -20,15 +21,15 @@ fun LitraApp(vm: LibraryViewModel) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route ?: "home"
-    val books by vm.books.collectAsState()
-    val preferences by vm.preferences.collectAsState()
-    val error by vm.error.collectAsState()
-    val message by vm.message.collectAsState()
+    val books by vm.books.collectAsStateWithLifecycle()
+    val preferences by vm.preferences.collectAsStateWithLifecycle()
+    val error by vm.error.collectAsStateWithLifecycle()
+    val message by vm.message.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     var selected by remember { mutableStateOf<Book?>(null) }
     var delete by remember { mutableStateOf<Book?>(null) }
     var categoryBook by remember { mutableStateOf<Book?>(null) }
-    val categories by vm.categories.collectAsState()
+    val categories by vm.categories.collectAsStateWithLifecycle()
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { if (it.isNotEmpty()) vm.import(it) }
     val onImport = { picker.launch(arrayOf("application/epub+zip", "application/octet-stream")) }
     val read: (Book) -> Unit = { nav.navigate("reader/${it.id}") }

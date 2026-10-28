@@ -1,5 +1,6 @@
 package io.github.unfo17.litra.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
@@ -13,6 +14,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -23,8 +26,8 @@ import java.time.*
 
 @Composable
 fun HomeScreen(vm: LibraryViewModel, books: List<Book>?, read: (Book) -> Unit, detail: (Book) -> Unit, menu: (Book) -> Unit, goals: () -> Unit, library: () -> Unit) {
-    val checkIns by vm.checkIns.collectAsState()
-    val allGoals by vm.goals.collectAsState()
+    val checkIns by vm.checkIns.collectAsStateWithLifecycle()
+    val allGoals by vm.goals.collectAsStateWithLifecycle()
     val now = System.currentTimeMillis()
     val goal = allGoals.firstOrNull { it.effectiveAt <= now } ?: ReadingGoal(id = 0)
     val range = GoalPeriods.activeRange(goal, now, ZoneId.systemDefault())
@@ -37,13 +40,13 @@ fun HomeScreen(vm: LibraryViewModel, books: List<Book>?, read: (Book) -> Unit, d
             item { SectionTitle("继续阅读") }
             item { val items = books.filter { it.status == "READING" }.take(10); if (items.isEmpty()) EmptyState("留一点时间给阅读", "从书库打开一本 EPUB，继续阅读会出现在这里。", "打开书库", library) else HorizontalBooks(vm, items, read, detail, menu) }
             item { SectionTitle("欲读清单") }
-            item { val items = books.filter { it.status == "WANT_TO_READ" }; if (items.isEmpty()) QuietEmpty("长按图书，加入下一段阅读。") else LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) { items(items, key = { it.id }) { book -> Column(Modifier.width(180.dp).combinedClickable(onClick = { detail(book) }, onLongClick = { menu(book) })) { Cover(book, vm.repository::file); Text(book.progressLabel, Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall) } } } }
+            item { val items = books.filter { it.status == "WANT_TO_READ" }; if (items.isEmpty()) QuietEmpty("长按图书，加入下一段阅读。") else LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) { items(items, key = { it.id }) { book -> Column(Modifier.width(180.dp).combinedClickable(onClickLabel = "查看《${book.title}》详情", onLongClickLabel = "更多操作", onClick = { detail(book) }, onLongClick = { menu(book) })) { Cover(book, vm.repository::file); Text(book.progressLabel, Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall) } } } }
             item { SectionTitle("之前读过") }
             item { val items = books.filter { it.status == "FINISHED" }.take(10); if (items.isEmpty()) QuietEmpty("读完一本，留下一个故事。") else HorizontalBooks(vm, items, read, detail, menu) }
             item { SectionTitle("阅读目标") }
             item { Card(onClick = goals, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) { Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { Text("${GoalPeriods.label(goal.period)} ${goal.minutes} 分钟", style = MaterialTheme.typography.titleLarge); Text("本周期 ${(checkIn?.seconds ?: 0) / 60} / ${goal.minutes} 分钟"); LinearProgressIndicator(progress = { ((checkIn?.seconds ?: 0).toFloat() / (goal.minutes * 60)).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth()); Text(if (checkIn?.completedAt != null) "本周期已达标" else "每一页都算数", style = MaterialTheme.typography.bodySmall) } } }
             item { SectionTitle("今年读过 · ${thisYear.size} 本") }
-            item { if (thisYear.isEmpty()) QuietEmpty("你的年度阅读记录，正在等待第一本。") else LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) { items(thisYear, key = { it.id }) { book -> Column(Modifier.width(120.dp).combinedClickable(onClick = { detail(book) }, onLongClick = { menu(book) })) { Cover(book, vm.repository::file); Text("已读完", Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall) } } } }
+            item { if (thisYear.isEmpty()) QuietEmpty("你的年度阅读记录，正在等待第一本。") else LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) { items(thisYear, key = { it.id }) { book -> Column(Modifier.width(120.dp).combinedClickable(onClickLabel = "查看《${book.title}》详情", onLongClickLabel = "更多操作", onClick = { detail(book) }, onLongClick = { menu(book) })) { Cover(book, vm.repository::file); Text("已读完", Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall) } } } }
         }
     }
 }
@@ -54,9 +57,9 @@ fun HomeScreen(vm: LibraryViewModel, books: List<Book>?, read: (Book) -> Unit, d
 fun HorizontalBooks(vm: LibraryViewModel, books: List<Book>, read: (Book) -> Unit, detail: (Book) -> Unit, menu: (Book) -> Unit) {
     LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         items(books, key = { it.id }) { book ->
-            Card(Modifier.width(350.dp).combinedClickable(onClick = { read(book) }, onLongClick = { menu(book) })) {
+            Card(Modifier.width(350.dp).combinedClickable(onClickLabel = "阅读《${book.title}》", onLongClickLabel = "更多操作", onClick = { read(book) }, onLongClick = { menu(book) })) {
                 Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Box(Modifier.width(90.dp).clickable { detail(book) }) { Cover(book, vm.repository::file) }
+                    Box(Modifier.width(90.dp).clickable(onClickLabel = "查看《${book.title}》详情") { detail(book) }) { Cover(book, vm.repository::file) }
                     Column(Modifier.weight(1f).heightIn(min = 136.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(book.title, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         if (book.authors.isNotBlank()) Text(book.authors, style = MaterialTheme.typography.bodySmall, maxLines = 1)
@@ -71,7 +74,7 @@ fun HorizontalBooks(vm: LibraryViewModel, books: List<Book>, read: (Book) -> Uni
 
 @Composable
 fun CompletionControl(book: Book, finish: () -> Unit) {
-    if (book.needsFinish) TextButton(onClick = finish, modifier = Modifier.testTag("finish-prompt-${book.id}")) { Text("点击标记读完") }
+    if (book.needsFinish) TextButton(onClick = finish, modifier = Modifier.testTag("finish-prompt-${book.id}").semantics { contentDescription = "标记《${book.title}》为已读完" }) { Text("点击标记读完") }
     else if (book.status == "FINISHED") Text("已读完", style = MaterialTheme.typography.bodySmall)
     else { Text("${book.kind} · ${book.progressLabel}", style = MaterialTheme.typography.labelMedium); LinearProgressIndicator(progress = { book.progress.toFloat() }, modifier = Modifier.fillMaxWidth()) }
 }
@@ -79,7 +82,7 @@ fun CompletionControl(book: Book, finish: () -> Unit) {
 @Composable
 fun SearchScreen(vm: LibraryViewModel, books: List<Book>?, read: (Book) -> Unit, detail: (Book) -> Unit, menu: (Book) -> Unit, settings: () -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
-    val history by vm.history.collectAsState()
+    val history by vm.history.collectAsStateWithLifecycle()
     val keyboard = LocalSoftwareKeyboardController.current
     val results = books?.filter { query.isNotBlank() && (it.title.contains(query.trim(), ignoreCase = true) || it.authors.contains(query.trim(), ignoreCase = true)) }
     Scaffold(topBar = { PageBar("搜索") }, floatingActionButton = { FloatingActionButton(onClick = settings) { Icon(Icons.Default.Settings, "设置") } }) { padding ->
@@ -94,8 +97,8 @@ fun SearchScreen(vm: LibraryViewModel, books: List<Book>?, read: (Book) -> Unit,
                     results == null -> item { CircularProgressIndicator() }
                     results.isEmpty() -> item { EmptyState("没有找到图书", "试试其他书名或作者。") }
                     else -> items(results, key = { it.id }) { book ->
-                        Row(Modifier.fillMaxWidth().combinedClickable(onClick = { vm.search(query); read(book) }, onLongClick = { menu(book) }).padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.width(68.dp).clickable { vm.search(query); detail(book) }) { Cover(book, vm.repository::file) }
+                        Row(Modifier.fillMaxWidth().combinedClickable(onClickLabel = "阅读《${book.title}》", onLongClickLabel = "更多操作", onClick = { vm.search(query); read(book) }, onLongClick = { menu(book) }).padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.width(68.dp).clickable(onClickLabel = "查看《${book.title}》详情") { vm.search(query); detail(book) }) { Cover(book, vm.repository::file) }
                             Column(Modifier.weight(1f)) { Text(book.title, style = MaterialTheme.typography.titleMedium); Text(book.authors, style = MaterialTheme.typography.bodySmall); Text(book.progressLabel, Modifier.padding(top = 8.dp), style = MaterialTheme.typography.labelSmall) }
                         }
                     }

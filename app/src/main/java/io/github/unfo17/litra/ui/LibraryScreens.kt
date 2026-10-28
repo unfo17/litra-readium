@@ -1,5 +1,6 @@
 package io.github.unfo17.litra.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
@@ -23,11 +24,11 @@ import java.time.ZoneId
 
 @Composable
 fun LibraryScreen(vm: LibraryViewModel, books: List<Book>?, list: Boolean, onView: (Boolean) -> Unit, onImport: () -> Unit, collections: () -> Unit, read: (Book) -> Unit, menu: (Book) -> Unit) {
-    val filter by vm.filter.collectAsState()
-    val categories by vm.categories.collectAsState()
-    val memberships by vm.memberships.collectAsState()
-    val prefs by vm.preferences.collectAsState()
-    val importing by vm.importing.collectAsState()
+    val filter by vm.filter.collectAsStateWithLifecycle()
+    val categories by vm.categories.collectAsStateWithLifecycle()
+    val memberships by vm.memberships.collectAsStateWithLifecycle()
+    val prefs by vm.preferences.collectAsStateWithLifecycle()
+    val importing by vm.importing.collectAsStateWithLifecycle()
     var options by remember { mutableStateOf(false) }
     val filtered = books?.filter { book -> when (filter) { "图书" -> true; "欲读清单" -> book.status == "WANT_TO_READ"; "PDF", "有声书" -> false; else -> memberships.any { it.bookId == book.id && it.categoryId == filter } } }?.let { items -> when (prefs.sort) { "TITLE" -> items.sortedBy { it.title }; "IMPORTED" -> items.sortedByDescending { it.createdAt }; "PROGRESS" -> items.sortedByDescending { it.progress }; else -> items } }
     Scaffold(topBar = { PageBar("书库") }, floatingActionButton = {
@@ -45,7 +46,7 @@ fun LibraryScreen(vm: LibraryViewModel, books: List<Book>?, list: Boolean, onVie
                 filtered.isEmpty() -> EmptyState("这里还没有图书", if (filter in listOf("PDF", "有声书")) "V1 暂不支持此格式，请导入 EPUB。" else "导入本地 EPUB，让下一段阅读从这里开始。", if (filter == "图书") "导入 EPUB" else null, onImport)
                 list -> LazyColumn(Modifier.testTag("library-list"), contentPadding = PaddingValues(bottom = 230.dp)) {
                     items(filtered, key = { it.id }) { book ->
-                        Row(Modifier.fillMaxWidth().combinedClickable(onClick = { read(book) }, onLongClick = { menu(book) }).padding(20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                        Row(Modifier.fillMaxWidth().combinedClickable(onClickLabel = "阅读《${book.title}》", onLongClickLabel = "更多操作", onClick = { read(book) }, onLongClick = { menu(book) }).padding(20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                             Cover(book, vm.repository::file, Modifier.width(76.dp))
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text(book.title, style = MaterialTheme.typography.titleMedium); Text(book.authors); Text(book.progressLabel, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                             IconButton(onClick = { menu(book) }) { Icon(Icons.Default.MoreVert, "${book.title}的操作") }
@@ -54,7 +55,7 @@ fun LibraryScreen(vm: LibraryViewModel, books: List<Book>?, list: Boolean, onVie
                 }
                 else -> LazyVerticalGrid(GridCells.Fixed(2), modifier = Modifier.testTag("library-grid"), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 230.dp), horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
                     items(filtered, key = { it.id }) { book ->
-                        Column(Modifier.combinedClickable(onClick = { read(book) }, onLongClick = { menu(book) })) {
+                        Column(Modifier.combinedClickable(onClickLabel = "阅读《${book.title}》", onLongClickLabel = "更多操作", onClick = { read(book) }, onLongClick = { menu(book) })) {
                             Cover(book, vm.repository::file, Modifier.fillMaxWidth())
                             Text(book.progressLabel, Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                         }
@@ -76,8 +77,8 @@ fun LibraryScreen(vm: LibraryViewModel, books: List<Book>?, list: Boolean, onVie
 
 @Composable
 fun CollectionsScreen(vm: LibraryViewModel, back: () -> Unit, finished: () -> Unit) {
-    val categories by vm.categories.collectAsState()
-    val filter by vm.filter.collectAsState()
+    val categories by vm.categories.collectAsStateWithLifecycle()
+    val filter by vm.filter.collectAsStateWithLifecycle()
     var marking by rememberSaveable { mutableStateOf(false) }
     var selected by remember { mutableStateOf(setOf<String>()) }
     var add by remember { mutableStateOf(false) }

@@ -1,5 +1,6 @@
 package io.github.unfo17.litra.ui
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.text.KeyboardOptions
@@ -15,8 +16,8 @@ import java.time.*
 
 @Composable
 fun GoalsScreen(vm: LibraryViewModel, back: () -> Unit) {
-    val goals by vm.goals.collectAsState()
-    val checkIns by vm.checkIns.collectAsState()
+    val goals by vm.goals.collectAsStateWithLifecycle()
+    val checkIns by vm.checkIns.collectAsStateWithLifecycle()
     val now = System.currentTimeMillis()
     val active = goals.firstOrNull { it.effectiveAt <= now } ?: ReadingGoal(id = 0)
     val pending = goals.firstOrNull { it.effectiveAt > now }
