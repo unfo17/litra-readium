@@ -5,6 +5,12 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface LibraryDao {
+    @Update suspend fun update(book: Book)
+    @Query("SELECT * FROM bookmarks") suspend fun allBookmarks(): List<Bookmark>
+    @Query("SELECT * FROM goal_check_ins") suspend fun allCheckIns(): List<GoalCheckIn>
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun restoreBookmark(value: Bookmark)
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun restoreSession(value: ReadingSession)
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun restoreGoal(value: ReadingGoal)
     @Query("SELECT * FROM books ORDER BY COALESCE(lastReadAt, createdAt) DESC") fun books(): Flow<List<Book>>
     @Query("SELECT * FROM books WHERE id = :id") suspend fun book(id: String): Book?
     @Query("SELECT * FROM books WHERE hash = :hash") suspend fun byHash(hash: String): Book?

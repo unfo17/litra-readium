@@ -4,6 +4,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -19,6 +23,10 @@ val routes = listOf("home", "library", "library-list", "collections", "search", 
 @Composable
 fun LitraApp(vm: LibraryViewModel) {
     val nav = rememberNavController()
+    val haptic = LocalHapticFeedback.current
+    val external by vm.externalBooks.collectAsStateWithLifecycle()
+    val importing by vm.importing.collectAsStateWithLifecycle()
+    val transfer by vm.transfer.collectAsStateWithLifecycle()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route ?: "home"
     val books by vm.books.collectAsStateWithLifecycle()
@@ -34,6 +42,7 @@ fun LitraApp(vm: LibraryViewModel) {
     val onImport = { picker.launch(arrayOf("application/epub+zip", "application/octet-stream")) }
     val read: (Book) -> Unit = { nav.navigate("reader/${it.id}") }
     val detail: (Book) -> Unit = { nav.navigate("detail/${it.id}") }
+    LaunchedEffect(external) { if (external.isNotEmpty()) { nav.navigate("detail/${external.first()}") { launchSingleTop = true }; vm.externalBooks.value = emptyList(); if (external.size > 1) vm.message.value = "已打开 ${external.size} 本图书，可在书库查看" } }
     LaunchedEffect(message) { message?.let { snackbar.showSnackbar(it); vm.message.value = null } }
     LitraTheme(preferences.appearance) {
         Scaffold(snackbarHost = { SnackbarHost(snackbar) }, bottomBar = {
@@ -42,14 +51,14 @@ fun LitraApp(vm: LibraryViewModel) {
                 tabs.forEach { (id, label, icon) -> NavigationBarItem(modifier = Modifier.testTag("tab-$id"), selected = route == id || id == "library" && route == "library-list", onClick = { nav.navigate(if (id == "library" && preferences.listView) "library-list" else id) { launchSingleTop = true; popUpTo("home") } }, icon = { Icon(icon, null) }, label = { Text(label) }) }
             }
         }, contentWindowInsets = WindowInsets(0)) { padding ->
-            NavHost(nav, startDestination = "home", modifier = Modifier.padding(bottom = padding.calculateBottomPadding())) {
-                composable("home") { HomeScreen(vm, books, read, detail, { selected = it }, { nav.navigate("goals") }, { nav.navigate(if (preferences.listView) "library-list" else "library") }) }
+            NavHost(nav, startDestination = "home", modifier = Modifier.padding(bottom = padding.calculateBottomPadding()), enterTransition = { fadeIn(tween(220)) + slideInHorizontally(tween(220)) { it / 12 } }, exitTransition = { fadeOut(tween(150)) }, popEnterTransition = { fadeIn(tween(180)) }, popExitTransition = { fadeOut(tween(150)) }) {
+                composable("home") { HomeScreen(vm, books, read, detail, { haptic.performHapticFeedback(HapticFeedbackType.LongPress); selected = it }, { nav.navigate("goals") }, { nav.navigate(if (preferences.listView) "library-list" else "library") }) }
                 listOf("library", "library-list").forEach { id -> composable(id) {
-                    LibraryScreen(vm, books, id == "library-list", onView = { list -> vm.flagPreference("list", list); nav.navigate(if (list) "library-list" else "library") { popUpTo(id) { inclusive = true } } }, onImport, { nav.navigate("collections") }, read, { selected = it })
+                    LibraryScreen(vm, books, id == "library-list", onView = { list -> vm.flagPreference("list", list); nav.navigate(if (list) "library-list" else "library") { popUpTo(id) { inclusive = true } } }, onImport, { nav.navigate("collections") }, read, { haptic.performHapticFeedback(HapticFeedbackType.LongPress); selected = it })
                 } }
                 composable("collections") { CollectionsScreen(vm, { nav.popBackStack() }, { nav.navigate("finished") }) }
                 composable("finished") { FinishedScreen(vm, books, { nav.popBackStack() }, detail) }
-                composable("search") { SearchScreen(vm, books, read, detail, { selected = it }, { nav.navigate("settings") }) }
+                composable("search") { SearchScreen(vm, books, read, detail, { haptic.performHapticFeedback(HapticFeedbackType.LongPress); selected = it }, { nav.navigate("settings") }) }
                 composable("detail/{id}") { e -> DetailScreen(vm, books?.find { it.id == e.arguments?.getString("id") }, books == null, { nav.popBackStack() }, read) }
                 composable("reader/{id}") { e -> ReaderScreen(e.arguments?.getString("id").orEmpty(), vm, { nav.popBackStack() }) }
                 composable("goals") { GoalsScreen(vm, { nav.popBackStack() }) }
@@ -64,11 +73,12 @@ fun LitraApp(vm: LibraryViewModel) {
             TextButton(onClick = { selected = null; detail(book) }) { Text("图书信息") }
             TextButton(onClick = { delete = book; selected = null }) { Text("移除") }
         } }, confirmButton = { TextButton(onClick = { selected = null }) { Text("关闭") } }) }
-        delete?.let { book -> AlertDialog(onDismissRequest = { delete = null }, title = { Text("移除《${book.title}》？") }, text = { Text("此操作会删除 Litra 内的文件和阅读记录，原始文件不受影响。") }, confirmButton = { TextButton(onClick = { vm.delete(book); delete = null }) { Text("移除") } }, dismissButton = { TextButton(onClick = { delete = null }) { Text("取消") } }) }
+        delete?.let { book -> AlertDialog(onDismissRequest = { delete = null }, title = { Text("移除《${book.title}》？") }, text = { Text("此操作会删除 Litra 内的文件和阅读记录，原始文件不受影响。") }, confirmButton = { TextButton(onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.delete(book); delete = null }) { Text("移除") } }, dismissButton = { TextButton(onClick = { delete = null }) { Text("取消") } }) }
         categoryBook?.let { book -> AlertDialog(onDismissRequest = { categoryBook = null }, title = { Text("加入分类") }, text = { Column {
             if (categories.isEmpty()) Text("请先在藏书选项中添加分类。")
             categories.forEach { category -> TextButton(onClick = { vm.addCategory(book, category); categoryBook = null }) { Text(category.name) } }
         } }, confirmButton = { TextButton(onClick = { categoryBook = null }) { Text("关闭") } }) }
+        if (importing || transfer != null) AlertDialog(onDismissRequest = {}, title = { Text(if (transfer != null) "备份与恢复" else "正在导入 EPUB") }, text = { Column { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(transfer ?: "正在复制文件并读取书籍信息…", Modifier.padding(top = androidx.compose.ui.unit.Dp(16f))) } }, confirmButton = {})
         error?.let { AlertDialog(onDismissRequest = { vm.error.value = null }, title = { Text("操作未完成") }, text = { Text(it) }, confirmButton = { TextButton(onClick = { vm.error.value = null }) { Text("知道了") } }) }
     }
 }

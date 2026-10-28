@@ -12,6 +12,18 @@ import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.animation.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.*
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import org.readium.r2.navigator.preferences.FontFamily
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.*
@@ -57,6 +69,30 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
     val prefs by library.preferences.collectAsStateWithLifecycle()
     val bookmarks by vm.bookmarks.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    var chrome by rememberSaveable(id) { mutableStateOf(true) }
+    val view = LocalView.current
+    val readerDark = prefs.readerTheme == "DARK"
+    DisposableEffect(activity) {
+        val window = activity?.window
+        val oldBrightness = window?.attributes?.screenBrightness ?: -1f
+        onDispose {
+            window?.let { w ->
+                w.attributes = w.attributes.apply { screenBrightness = oldBrightness }
+                WindowCompat.getInsetsController(w, view).show(WindowInsetsCompat.Type.systemBars())
+            }
+        }
+    }
+    SideEffect {
+        activity?.window?.let { w ->
+            w.attributes = w.attributes.apply { screenBrightness = prefs.brightness.toFloat().coerceIn(-1f, 1f) }
+            WindowCompat.getInsetsController(w, view).apply {
+                isAppearanceLightStatusBars = !readerDark
+                isAppearanceLightNavigationBars = !readerDark
+                systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                if (chrome) show(WindowInsetsCompat.Type.systemBars()) else hide(WindowInsetsCompat.Type.systemBars())
+            }
+        }
+    }
     var sheet by remember { mutableStateOf<String?>(null) }
     var more by remember { mutableStateOf(false) }
     var leaving by remember { mutableStateOf(false) }
@@ -93,10 +129,27 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
     LaunchedEffect(controller, prefs) {
         controller?.let { c ->
             val theme = when (prefs.readerTheme) { "DARK" -> ReflowableWebPreferences.DarkTheme; "LIGHT" -> ReflowableWebPreferences.LightTheme; else -> ReflowableWebPreferences.SepiaTheme }
-            c.preferences = theme.copy(fontSize = prefs.fontSize, lineHeight = prefs.lineHeight, minMargins = prefs.margins, textAlign = if (prefs.justify) TextAlign.JUSTIFY else TextAlign.START, scroll = prefs.scroll)
+            c.preferences = theme.copy(fontFamily = if (prefs.fontFamily == "SANS") FontFamily.SANS_SERIF else FontFamily.SERIF, fontSize = prefs.fontSize, lineHeight = prefs.lineHeight, minMargins = prefs.margins, textAlign = if (prefs.justify) TextAlign.JUSTIFY else TextAlign.START, scroll = prefs.scroll)
         }
     }
-    Scaffold(topBar = {
+    val paper = when (prefs.readerTheme) { "DARK" -> Color(0xFF1C1B19); "LIGHT" -> Color.White; else -> Color(0xFFFAF4E8) }
+    Box(Modifier.fillMaxSize().background(paper).testTag("reader-page").semantics {
+        customActions = listOf(CustomAccessibilityAction(if (chrome) "隐藏阅读工具栏" else "显示阅读工具栏") { chrome = !chrome; true })
+    }) {
+        when {
+            error != null -> EmptyState("无法打开图书", error.orEmpty(), "重试", vm::load)
+            publication == null -> CircularProgressIndicator(Modifier.align(Alignment.Center))
+            reflowable != null -> key(reflowable) { ReflowableWebRendition(reflowable!!, Modifier.fillMaxSize(), windowInsets = WindowInsets(top = 28.dp, bottom = 28.dp)) }
+            fixed != null -> key(fixed) { FixedWebRendition(fixed!!, Modifier.fillMaxSize()) }
+        }
+        if (publication != null) Box(
+            Modifier.align(Alignment.Center).fillMaxWidth(.36f).fillMaxHeight(.30f)
+                .background(Color.Transparent).testTag("reader-center-tap-zone")
+                .clickable(onClickLabel = if (chrome) "隐藏阅读工具栏" else "显示阅读工具栏", indication = null,
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }) { chrome = !chrome }
+        )
+        AnimatedVisibility(chrome, modifier = Modifier.align(Alignment.TopCenter), enter = fadeIn() + slideInVertically { -it }, exit = fadeOut() + slideOutVertically { -it }) {
+            Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(paper, paper.copy(alpha = .96f), paper.copy(alpha = .85f)))).testTag("reader-top")) {
         PageBar(book?.title ?: "阅读器", leave) {
             IconButton(onClick = vm::bookmark, enabled = locator != null) { Icon(Icons.Default.BookmarkAdd, "添加书签") }
             Box { IconButton(onClick = { more = true }) { Icon(Icons.Default.MoreVert, "更多") }; DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
@@ -104,8 +157,10 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
                 DropdownMenuItem(text = { Text("排版设置") }, onClick = { sheet = "排版"; more = false })
             } }
         }
-    }, bottomBar = {
-        Surface(tonalElevation = 2.dp) {
+            }
+        }
+        AnimatedVisibility(chrome, modifier = Modifier.align(Alignment.BottomCenter), enter = fadeIn() + slideInVertically { it }, exit = fadeOut() + slideOutVertically { it }) {
+        Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = .96f), tonalElevation = 2.dp, modifier = Modifier.testTag("reader-bottom")) {
             Column(Modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 4.dp)) {
                 Text("${locator?.title ?: publication?.tableOfContents?.let { flattenToc(it) }?.find { it.url().removeFragment() == locator?.href?.removeFragment() }?.title ?: "阅读进度"} · ${BookRules.percent(progress)}%", style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 var slider by remember { mutableFloatStateOf(0f) }; var dragging by remember { mutableStateOf(false) }
@@ -117,14 +172,6 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
                 }
             }
         }
-    }) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
-            when {
-                error != null -> EmptyState("无法打开图书", error.orEmpty(), "重试", vm::load)
-                publication == null -> CircularProgressIndicator(Modifier.align(Alignment.Center))
-                reflowable != null -> key(reflowable) { ReflowableWebRendition(reflowable!!, Modifier.fillMaxSize()) }
-                fixed != null -> key(fixed) { FixedWebRendition(fixed!!, Modifier.fillMaxSize()) }
-            }
         }
     }
     if (sheet != null) ModalBottomSheet(onDismissRequest = { sheet = null }) {
@@ -157,8 +204,13 @@ fun ReaderScreen(id: String, library: LibraryViewModel, back: () -> Unit) {
 fun ReaderPreferences(vm: LibraryViewModel, fixed: Boolean = false) {
     val p by vm.preferences.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxWidth()) {
+        Text("屏幕亮度", style = MaterialTheme.typography.titleSmall)
+        Row(verticalAlignment = Alignment.CenterVertically) { Text("跟随系统", Modifier.weight(1f)); Switch(p.brightness < 0, { vm.action { vm.preferencesRepository.number("brightness", if (it) -1.0 else .5) } }) }
+        if (p.brightness >= 0) Slider(p.brightness.toFloat(), { vm.action { vm.preferencesRepository.number("brightness", it.toDouble()) } }, valueRange = .05f..1f)
         if (fixed) Text("固定版式保留原书排版。")
         else {
+            Text("字体", style = MaterialTheme.typography.titleSmall)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("SERIF" to "系统衬线", "SANS" to "系统无衬线").forEach { (id, label) -> FilterChip(selected = p.fontFamily == id, onClick = { vm.textPreference("fontFamily", id) }, label = { Text(label) }) } }
             Text("字号"); Slider(p.fontSize.toFloat(), { vm.action { vm.preferencesRepository.number("font", it.toDouble()) } }, valueRange = 0.6f..2.5f)
             Text("行距"); Slider(p.lineHeight.toFloat(), { vm.action { vm.preferencesRepository.number("line", it.toDouble()) } }, valueRange = 1f..2.5f)
             Text("页边距"); Slider(p.margins.toFloat(), { vm.action { vm.preferencesRepository.number("margins", it.toDouble()) } }, valueRange = 0f..3f)

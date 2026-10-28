@@ -57,3 +57,15 @@
 - 移除 `INTERNET` 权限与 `usesCleartextTraffic`；本地 EPUB 的远程资源不再加载，已在 README 说明。
 - 元数据标签与文件大小格式新增单元测试；版本保持 `0.1.0`，不创建 tag 或 Release。
 - 本地 `assembleDebug testDebugUnitTest lintDebug assembleRelease` 通过，10 项单元测试通过；冷启动模拟器后 6 项设备测试全通过（包括 Readium 渲染/搜索）。
+
+## v0.2.0 — UI refresh + missing features（`feat/v0.2.0`）
+
+- 主页空区块完全折叠；阅读目标/今年读过常驻并显示今年数量和明确空状态。加入八种组合的 Compose 测试。
+- Material 3 暖色统一、导航/主页显隐动画、Reader 淡入滑入工具栏和渐变底；支持窗口亮度、系统衬线/无衬线和跨书保存排版设置。
+- API 35 设备上确认 Readium 不稳定转发中心点按，改用中央 36% 宽、30% 高透明点击区；两侧阅读、选取和链接仍可交互。中央区域内的点击会被用于切换工具栏。
+- `ACTION_VIEW` / `SEND` / `SEND_MULTIPLE` 入口支持冷启动、暖启动与多 URI；检查 EPUB ZIP 内容和 `mimetype`，相同 SHA-256 打开已有书目。设备测试覆盖冷启动与 warm intent 去重。
+- Settings 增加 SAF `.litrabackup` 导出/恢复：版本化 manifest、Room 全实体、EPUB/封面、校验哈希、zip-slip/大小/数量上限、阶段目录与事务合并；按 SHA-256 去重，完成状态保持，最新进度/完成时间优先。单测验证序列化、路径拒绝与冲突规则，设备测试以两本书、全部实体、重复恢复和故障回滚验证往返。
+- README 已更新 7 张 API 35 实机截图：空/有内容主页、双列书库、Reader 显示/沉浸、详情、设置。图片中的样书为本地演示 EPUB，不随应用分发。
+- 验证：`assembleDebug`、`testDebugUnitTest`（15 项）、`lintDebug`、`assembleRelease`、`compileDebugAndroidTestKotlin` 均通过；API 35 `connectedDebugAndroidTest` 10/10 通过。真实 EPUB 通过 `adb shell am start -a android.intent.action.VIEW ...` 导入并打开详情/阅读；中央点按隐藏系统栏与工具栏，`reader-center-tap-zone` 设备测试验证显隐。
+- 已知限制：Readium WebView 不可靠转发中心点按，透明中心区会截获该区域文本选取/链接点按；API 35 冷启动模拟器第一次启用全屏会显示 Android 系统“一次性全屏”确认提示。其他厂商 WebView/真机尚未走查。
+- 仍需完成：提交并推送功能分支，创建 PR，等待 CI 通过后合并 `main`。不创建新 tag/Release，版本继续为 `0.1.0`。

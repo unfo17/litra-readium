@@ -1,6 +1,9 @@
 package io.github.unfo17.litra.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.*
 import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
@@ -24,5 +27,5 @@ fun LitraTheme(mode: String = "SYSTEM", content: @Composable () -> Unit) {
             }
         }
     }
-    MaterialTheme(colorScheme = scheme, content = content)
+    MaterialTheme(colorScheme = scheme, shapes = Shapes(extraSmall = RoundedCornerShape(6.dp), small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(20.dp), large = RoundedCornerShape(24.dp), extraLarge = RoundedCornerShape(28.dp)), typography = Typography().let { it.copy(titleLarge = it.titleLarge.copy(fontWeight = FontWeight.SemiBold), headlineSmall = it.headlineSmall.copy(fontWeight = FontWeight.SemiBold)) }, content = content)
 }
