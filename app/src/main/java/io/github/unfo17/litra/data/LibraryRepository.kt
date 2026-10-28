@@ -20,13 +20,13 @@ import javax.inject.Singleton
 @Singleton
 class LibraryRepository @Inject constructor(@ApplicationContext private val context: Context, val db: LitraDatabase, val readium: ReadiumService) {
     val dao = db.library()
-    private val importMutex = Mutex()
+    internal val storageMutex = Mutex()
     val books = dao.books()
     val categories = dao.categories()
     val memberships = dao.memberships()
     fun file(name: String) = File(context.filesDir, name)
 
-    suspend fun import(uri: Uri): Book = importMutex.withLock {
+    suspend fun import(uri: Uri): Book = storageMutex.withLock {
         withContext(Dispatchers.IO) {
             val id = UUID.randomUUID().toString()
             val bookFile = file("books/$id.epub").also { it.parentFile?.mkdirs() }
@@ -50,6 +50,7 @@ class LibraryRepository @Inject constructor(@ApplicationContext private val cont
                 } ?: throw IOException("无法读取所选文件")
                 val hash = digest.digest().joinToString("") { "%02x".format(it) }
                 dao.byHash(hash)?.let { return@withContext it }
+                requireEpub(bookFile)
                 val pub = readium.open(bookFile)
                 try {
                     require(pub.readingOrder.isNotEmpty()) { "EPUB 中没有可阅读的章节" }
@@ -68,10 +69,11 @@ class LibraryRepository @Inject constructor(@ApplicationContext private val cont
         }
     }
 
-    suspend fun delete(book: Book) = withContext(Dispatchers.IO) {
+    suspend fun delete(book: Book) = storageMutex.withLock { withContext(Dispatchers.IO) {
         dao.delete(book)
         file(book.fileName).delete()
         book.coverName?.let { file(it).delete() }
+    }
     }
     suspend fun progress(id: String, json: String, progression: Double) = dao.saveProgress(id, json, BookRules.progress(progression), System.currentTimeMillis())
     suspend fun finish(id: String) = dao.finish(id, System.currentTimeMillis())
@@ -81,4 +83,15 @@ class LibraryRepository @Inject constructor(@ApplicationContext private val cont
         require(value !in listOf("图书", "欲读清单", "已读完", "PDF", "有声书")) { "请使用不同于默认藏书的分类名" }
         dao.category(Category(name = value))
     }
+}
+
+/** MIME types and extensions supplied by other apps are untrusted. */
+internal fun requireEpub(file: File) {
+    try {
+        java.util.zip.ZipFile(file).use { zip ->
+            val entry = zip.getEntry("mimetype") ?: error("缺少 EPUB mimetype")
+            require(entry.size in 1..128 && zip.getEntry("META-INF/container.xml") != null)
+            require(zip.getInputStream(entry).bufferedReader().use { it.readText() }.trim() == "application/epub+zip")
+        }
+    } catch (e: Exception) { throw IOException("文件不是有效的无 DRM EPUB", e) }
 }

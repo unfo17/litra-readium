@@ -2,6 +2,7 @@ package io.github.unfo17.litra.ui
 
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.*
+import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.text.KeyboardActions
@@ -37,27 +38,37 @@ fun HomeScreen(vm: LibraryViewModel, books: List<Book>?, read: (Book) -> Unit, d
     Scaffold(topBar = { PageBar("主页") }) { padding ->
         if (books == null) Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         else LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 28.dp)) {
-            item { SectionTitle("继续阅读") }
-            item { val items = books.filter { it.status == "READING" }.take(10); if (items.isEmpty()) EmptyState("留一点时间给阅读", "从书库打开一本 EPUB，继续阅读会出现在这里。", "打开书库", library) else HorizontalBooks(vm, items, read, detail, menu) }
-            item { SectionTitle("欲读清单") }
-            item { val items = books.filter { it.status == "WANT_TO_READ" }; if (items.isEmpty()) QuietEmpty("长按图书，加入下一段阅读。") else LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) { items(items, key = { it.id }) { book -> Column(Modifier.width(180.dp).combinedClickable(onClickLabel = "查看《${book.title}》详情", onLongClickLabel = "更多操作", onClick = { detail(book) }, onLongClick = { menu(book) })) { Cover(book, vm.repository::file); Text(book.progressLabel, Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall) } } } }
-            item { SectionTitle("之前读过") }
-            item { val items = books.filter { it.status == "FINISHED" }.take(10); if (items.isEmpty()) QuietEmpty("读完一本，留下一个故事。") else HorizontalBooks(vm, items, read, detail, menu) }
+            val reading = books.filter { it.status == "READING" }.take(10)
+            val wanted = books.filter { it.status == "WANT_TO_READ" }
+            val previous = books.filter { it.status == "FINISHED" }.take(10)
+            item(key = "reading") { HomeModule("继续阅读", reading.isNotEmpty()) { HorizontalBooks(vm, reading, read, detail, menu) } }
+            item(key = "wanted") { HomeModule("欲读清单", wanted.isNotEmpty()) {
+                LazyRow(contentPadding = PaddingValues(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                    items(wanted, key = { it.id }) { book -> Column(Modifier.width(156.dp).combinedClickable(onClickLabel = "查看《${book.title}》详情", onLongClickLabel = "更多操作", onClick = { detail(book) }, onLongClick = { menu(book) })) { Cover(book, vm.repository::file); Text(book.progressLabel, Modifier.padding(top = 10.dp), style = MaterialTheme.typography.labelMedium) } }
+                }
+            } }
+            item(key = "previous") { HomeModule("之前读过", previous.isNotEmpty()) { HorizontalBooks(vm, previous, read, detail, menu) } }
             item { SectionTitle("阅读目标") }
             item { Card(onClick = goals, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) { Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { Text("${GoalPeriods.label(goal.period)} ${goal.minutes} 分钟", style = MaterialTheme.typography.titleLarge); Text("本周期 ${(checkIn?.seconds ?: 0) / 60} / ${goal.minutes} 分钟"); LinearProgressIndicator(progress = { ((checkIn?.seconds ?: 0).toFloat() / (goal.minutes * 60)).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth()); Text(if (checkIn?.completedAt != null) "本周期已达标" else "每一页都算数", style = MaterialTheme.typography.bodySmall) } } }
             item { SectionTitle("今年读过 · ${thisYear.size} 本") }
-            item { if (thisYear.isEmpty()) QuietEmpty("你的年度阅读记录，正在等待第一本。") else LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) { items(thisYear, key = { it.id }) { book -> Column(Modifier.width(120.dp).combinedClickable(onClickLabel = "查看《${book.title}》详情", onLongClickLabel = "更多操作", onClick = { detail(book) }, onLongClick = { menu(book) })) { Cover(book, vm.repository::file); Text("已读完", Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall) } } } }
+            item { if (thisYear.isEmpty()) Card(Modifier.padding(horizontal = 24.dp).fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) { EmptyState("给今年留下一本好书", "读完后标记完成，故事会在这里慢慢积累。", "打开书库", library) } else LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) { items(thisYear, key = { it.id }) { book -> Column(Modifier.width(120.dp).combinedClickable(onClickLabel = "查看《${book.title}》详情", onLongClickLabel = "更多操作", onClick = { detail(book) }, onLongClick = { menu(book) })) { Cover(book, vm.repository::file); Text("已读完", Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall) } } } }
         }
     }
 }
 
-@Composable private fun SectionTitle(title: String) { HorizontalDivider(Modifier.padding(top = 24.dp)); Text(title, Modifier.padding(horizontal = 20.dp, vertical = 20.dp), style = MaterialTheme.typography.headlineSmall) }
+@Composable
+fun HomeModule(title: String, visible: Boolean, content: @Composable () -> Unit) {
+    AnimatedVisibility(visible, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+        Column { SectionTitle(title); content() }
+    }
+}
+@Composable private fun SectionTitle(title: String) { Text(title, Modifier.padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 16.dp), style = MaterialTheme.typography.titleLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold) }
 @Composable private fun QuietEmpty(text: String) { Text(text, Modifier.padding(horizontal = 20.dp, vertical = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
 @Composable
 fun HorizontalBooks(vm: LibraryViewModel, books: List<Book>, read: (Book) -> Unit, detail: (Book) -> Unit, menu: (Book) -> Unit) {
     LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         items(books, key = { it.id }) { book ->
-            Card(Modifier.width(350.dp).combinedClickable(onClickLabel = "阅读《${book.title}》", onLongClickLabel = "更多操作", onClick = { read(book) }, onLongClick = { menu(book) })) {
+            Card(Modifier.widthIn(max = 350.dp).fillParentMaxWidth(.9f).combinedClickable(onClickLabel = "阅读《${book.title}》", onLongClickLabel = "更多操作", onClick = { read(book) }, onLongClick = { menu(book) })) {
                 Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Box(Modifier.width(90.dp).clickable(onClickLabel = "查看《${book.title}》详情") { detail(book) }) { Cover(book, vm.repository::file) }
                     Column(Modifier.weight(1f).heightIn(min = 136.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -87,7 +98,7 @@ fun SearchScreen(vm: LibraryViewModel, books: List<Book>?, read: (Book) -> Unit,
     val results = books?.filter { query.isNotBlank() && (it.title.contains(query.trim(), ignoreCase = true) || it.authors.contains(query.trim(), ignoreCase = true)) }
     Scaffold(topBar = { PageBar("搜索") }, floatingActionButton = { FloatingActionButton(onClick = settings) { Icon(Icons.Default.Settings, "设置") } }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 110.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { OutlinedTextField(query, { query = it.take(120) }, label = { Text("书名或作者") }, modifier = Modifier.fillMaxWidth(), singleLine = true, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { vm.search(query); keyboard?.hide() }), leadingIcon = { Icon(Icons.Default.Search, null) }, trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Default.Close, "清空搜索") } }) }
+            item { OutlinedTextField(query, { query = it.take(120) }, label = { Text("书名或作者") }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.extraLarge, singleLine = true, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { vm.search(query); keyboard?.hide() }), leadingIcon = { Icon(Icons.Default.Search, null) }, trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Default.Close, "清空搜索") } }) }
             if (query.isBlank() && history.isNotEmpty()) {
                 item { Text("搜索记录", Modifier.testTag("search-history"), style = MaterialTheme.typography.titleLarge) }
                 items(history, key = { it.query }) { item -> TextButton(onClick = { query = item.query; vm.search(query) }) { Icon(Icons.Default.History, null); Spacer(Modifier.width(12.dp)); Text(item.query) } }

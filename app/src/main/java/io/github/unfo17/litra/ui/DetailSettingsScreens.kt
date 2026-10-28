@@ -2,6 +2,8 @@ package io.github.unfo17.litra.ui
 
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.foundation.*
@@ -87,6 +89,9 @@ private fun MetadataTag(text: String) {
 @Composable
 fun SettingsScreen(vm: LibraryViewModel, back: () -> Unit, goals: () -> Unit) {
     val prefs by vm.preferences.collectAsStateWithLifecycle()
+    var backup by remember { mutableStateOf(false) }
+    val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { it?.let { uri -> vm.backup(uri, false) } }
+    val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let { uri -> vm.backup(uri, true) } }
     var clear by remember { mutableStateOf(false) }
     var reader by remember { mutableStateOf(false) }
     var licenses by remember { mutableStateOf(false) }
@@ -105,10 +110,15 @@ fun SettingsScreen(vm: LibraryViewModel, back: () -> Unit, goals: () -> Unit) {
             item { ListItem(headlineContent = { Text("阅读时保持屏幕常亮") }, trailingContent = { Switch(prefs.keepAwake, { vm.flagPreference("awake", it) }) }) }
             item { ListItem(headlineContent = { Text("保存搜索记录") }, trailingContent = { Switch(prefs.rememberSearch, { vm.flagPreference("history", it) }) }) }
             item { ListItem(headlineContent = { Text("清除搜索记录") }, modifier = Modifier.clickable { clear = true }, leadingContent = { Icon(Icons.Default.History, null) }) }
+            item { HorizontalDivider(); ListItem(headlineContent = { Text("备份与恢复") }, supportingContent = { Text("将图书、封面与阅读记录保存在你选择的位置") }, leadingContent = { Icon(Icons.Default.Backup, null) }, modifier = Modifier.clickable { backup = true }) }
             item { HorizontalDivider(); ListItem(headlineContent = { Text("关于 Litra") }, supportingContent = { Text("${BuildConfig.VERSION_NAME} preview\n本地 EPUB 阅读器 · Kotlin / Material 3 / Readium\n不收集数据，无账号与云服务。仅支持无 DRM EPUB 2/3。") }) }
             item { ListItem(headlineContent = { Text("开源许可") }, modifier = Modifier.clickable { licenses = true }, supportingContent = { Text("Readium：BSD-3-Clause；AndroidX / Coil / Hilt：Apache-2.0。完整依赖声明见项目 THIRD_PARTY_NOTICES.md。") }) }
         }
     }
+    if (backup) AlertDialog(onDismissRequest = { backup = false }, title = { Text("备份与恢复") }, text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { Text("备份包含 EPUB、封面、分类、书签、阅读记录、目标与搜索历史。恢复将合并相同图书，保留较新的阅读位置与已读完状态。最多 2 GB。请妥善保存文件。")
+        FilledTonalButton(onClick = { backup = false; export.launch("Litra-${java.time.LocalDate.now()}.litrabackup") }, modifier = Modifier.fillMaxWidth()) { Text("导出备份") }
+        OutlinedButton(onClick = { backup = false; restore.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) }, modifier = Modifier.fillMaxWidth()) { Text("选择备份并恢复") }
+    } }, confirmButton = { TextButton(onClick = { backup = false }) { Text("关闭") } })
     if (licenses) AlertDialog(onDismissRequest = { licenses = false }, title = { Text("开源许可") }, text = { Column(Modifier.verticalScroll(rememberScrollState())) { if (notice == null) CircularProgressIndicator() else Text(notice.orEmpty(), style = MaterialTheme.typography.bodySmall) } }, confirmButton = { TextButton(onClick = { licenses = false }) { Text("关闭") } })
     if (clear) AlertDialog(onDismissRequest = { clear = false }, title = { Text("清除搜索记录？") }, text = { Text("图书和阅读进度会保留。") }, confirmButton = { TextButton(onClick = { vm.action { vm.repository.dao.clearHistory() }; clear = false }) { Text("清除") } }, dismissButton = { TextButton(onClick = { clear = false }) { Text("取消") } })
     if (reader) AlertDialog(onDismissRequest = { reader = false }, title = { Text("阅读器排版") }, text = { Column(Modifier.verticalScroll(rememberScrollState())) { ReaderPreferences(vm) } }, confirmButton = { TextButton(onClick = { reader = false }) { Text("完成") } })
