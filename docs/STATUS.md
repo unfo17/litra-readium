@@ -68,4 +68,4 @@
 - README 已更新 7 张 API 35 实机截图：空/有内容主页、双列书库、Reader 显示/沉浸、详情、设置。图片中的样书为本地演示 EPUB，不随应用分发。
 - 验证：`assembleDebug`、`testDebugUnitTest`（15 项）、`lintDebug`、`assembleRelease`、`compileDebugAndroidTestKotlin` 均通过；API 35 `connectedDebugAndroidTest` 10/10 通过。真实 EPUB 通过 `adb shell am start -a android.intent.action.VIEW ...` 导入并打开详情/阅读；中央点按隐藏系统栏与工具栏，`reader-center-tap-zone` 设备测试验证显隐。
 - 已知限制：Readium WebView 不可靠转发中心点按，透明中心区会截获该区域文本选取/链接点按；API 35 冷启动模拟器第一次启用全屏会显示 Android 系统“一次性全屏”确认提示。其他厂商 WebView/真机尚未走查。
-- 仍需完成：提交并推送功能分支，创建 PR，等待 CI 通过后合并 `main`。不创建新 tag/Release，版本继续为 `0.1.0`。
+- PR [#9](https://github.com/unfo17/litra-readium/pull/9) 已通过 CI 并合并到 `main`（`23dcd5b`）。本轮不创建新 tag/Release，版本继续为 `0.1.0`。
