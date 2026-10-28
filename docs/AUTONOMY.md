@@ -38,6 +38,21 @@ This project runs a recurring, guarded improvement loop.
 - Performance: startup, large library (500+ books), cover thumbnails, baseline profile.
 - Release: after human approval, one `v0.2.0` release; no intermediate versions.
 
+## Supervisor gate (mandatory)
+
+The supervising agent must not simply trust GPT's final report. Before merging:
+
+1. Define a concrete user-visible acceptance criterion **before** starting GPT.
+2. Inspect the actual diff and changed files; reject placeholders, TODO-only work, or unrelated rewrites.
+3. Run/confirm unit tests, lint, R8, and connected tests for UI/reader changes.
+4. For UI work, install the APK and inspect real emulator screenshots; for reader work, open a real EPUB.
+5. Verify existing product rules (99%/FINISHED, type, progress placement, backup safety).
+6. If the result is superficial or unverified, send it back to GPT with specific defects; allow at most two rework loops, then abandon the run.
+7. Merge only after the gate passes. Append the result to `docs/RUN_LOG.md` with PR, commit, evidence and status.
+8. A run that produces only audits/notes is logged as `no-output`; do not pretend it is a delivered improvement.
+
+Quota should be spent on real, verified outcomes, not on activity reports. If there is no valuable work, skip the GPT call.
+
 ## Each run
 
 1. Inspect `git status`, `main`, open issues/PRs, latest Release, CI.
