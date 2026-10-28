@@ -4,8 +4,10 @@ This project runs a recurring, guarded improvement loop.
 
 ## Cadence
 
-- One run per day at 10:00 Asia/Shanghai.
-- One meaningful change per run. If there is nothing worth changing, report "no change" and stop.
+- One tick every 2 hours. If the previous run or Codex session is still active, skip that tick.
+- Every tick uses GPT twice: one implementation pass and one independent review pass. Fix anything the review finds before opening/merging the PR.
+- One meaningful change per run. If there is nothing worth changing, do a read-only audit, update the backlog, and report "no change" rather than churning code.
+- Keep at most one merged PR per tick. Do not create a second feature while the first is still in CI.
 
 ## Non-negotiable guardrails
 
