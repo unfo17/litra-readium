@@ -1,6 +1,7 @@
 package io.github.unfo17.litra.ui
 
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
@@ -23,6 +24,7 @@ import java.time.Instant
 import java.time.ZoneId
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun LibraryScreen(vm: LibraryViewModel, books: List<Book>?, list: Boolean, onView: (Boolean) -> Unit, onImport: () -> Unit, collections: () -> Unit, read: (Book) -> Unit, menu: (Book) -> Unit) {
     val filter by vm.filter.collectAsStateWithLifecycle()
     val categories by vm.categories.collectAsStateWithLifecycle()
@@ -30,33 +32,65 @@ fun LibraryScreen(vm: LibraryViewModel, books: List<Book>?, list: Boolean, onVie
     val prefs by vm.preferences.collectAsStateWithLifecycle()
     val importing by vm.importing.collectAsStateWithLifecycle()
     var options by remember { mutableStateOf(false) }
+    var selecting by remember { mutableStateOf(false) }
+    var selectedIds by remember { mutableStateOf(setOf<String>()) }
+    var batchMenu by remember { mutableStateOf(false) }
+    var categoryPicker by remember { mutableStateOf(false) }
+    var confirmBatchDelete by remember { mutableStateOf(false) }
     val filtered = books?.filter { book -> when (filter) { "图书" -> true; "欲读清单" -> book.status == "WANT_TO_READ"; "PDF", "有声书" -> false; else -> memberships.any { it.bookId == book.id && it.categoryId == filter } } }?.let { items -> when (prefs.sort) { "TITLE" -> items.sortedBy { it.title }; "IMPORTED" -> items.sortedByDescending { it.createdAt }; "PROGRESS" -> items.sortedByDescending { it.progress }; else -> items } }
-    Scaffold(topBar = { PageBar("书库") }, floatingActionButton = {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.End) {
+    val visibleIds = filtered.orEmpty().mapTo(linkedSetOf()) { it.id }
+    val allVisibleSelected = visibleIds.isNotEmpty() && selectedIds.containsAll(visibleIds)
+    fun exitSelection() { selecting = false; selectedIds = emptySet() }
+    fun toggleBook(book: Book) { selectedIds = if (book.id in selectedIds) selectedIds - book.id else selectedIds + book.id }
+    BackHandler(enabled = selecting) { exitSelection() }
+    Scaffold(topBar = {
+        if (!selecting) PageBar("书库", actions = { TextButton(onClick = { selecting = true; selectedIds = emptySet() }, modifier = Modifier.testTag("library-enter-selection")) { Text("选择") } })
+        else TopAppBar(
+            navigationIcon = { IconButton(onClick = ::exitSelection, modifier = Modifier.testTag("library-exit-selection")) { Icon(Icons.Default.Close, "退出选择") } },
+            title = { Text("已选 ${selectedIds.size} 本", modifier = Modifier.testTag("library-selection-count")) },
+            actions = {
+                TextButton(onClick = { selectedIds = if (allVisibleSelected) selectedIds - visibleIds else selectedIds + visibleIds }, enabled = visibleIds.isNotEmpty(), modifier = Modifier.testTag("library-select-all")) { Text(if (allVisibleSelected) "取消全选" else "全选") }
+                Box {
+                    TextButton(onClick = { batchMenu = true }, enabled = selectedIds.isNotEmpty(), modifier = Modifier.testTag("library-batch-actions")) { Text("操作"); Icon(Icons.Default.ExpandMore, null) }
+                    DropdownMenu(expanded = batchMenu, onDismissRequest = { batchMenu = false }) {
+                        DropdownMenuItem(text = { Text("加入自定义分类") }, onClick = { batchMenu = false; categoryPicker = true }, enabled = selectedIds.isNotEmpty())
+                        DropdownMenuItem(text = { Text("加入欲读清单") }, onClick = { batchMenu = false; vm.batchWant(selectedIds); exitSelection() }, enabled = selectedIds.isNotEmpty(), modifier = Modifier.testTag("batch-add-want"))
+                        DropdownMenuItem(text = { Text("移除图书") }, onClick = { batchMenu = false; confirmBatchDelete = true }, enabled = selectedIds.isNotEmpty(), modifier = Modifier.testTag("batch-remove-books"))
+                    }
+                }
+            }
+        )
+    }, floatingActionButton = {
+        if (!selecting) Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.End) {
             SmallFloatingActionButton(onClick = { options = true }) { Icon(Icons.Default.Tune, "筛选、排序与视图") }
             SmallFloatingActionButton(onClick = collections) { Icon(Icons.Default.FolderOpen, "藏书选项") }
             ExtendedFloatingActionButton(modifier = Modifier.semantics { contentDescription = if (importing) "正在导入 EPUB" else "导入 EPUB" }, onClick = { if (!importing) onImport() }, icon = { Icon(Icons.Default.Add, null) }, text = { Text(if (importing) "正在导入…" else "导入") })
         }
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            TextButton(onClick = collections, modifier = Modifier.padding(horizontal = 12.dp)) { Text(categories.find { it.id == filter }?.name ?: filter); Icon(Icons.Default.ExpandMore, null) }
+            if (!selecting) TextButton(onClick = collections, modifier = Modifier.padding(horizontal = 12.dp)) { Text(categories.find { it.id == filter }?.name ?: filter); Icon(Icons.Default.ExpandMore, null) }
             if (importing) LinearProgressIndicator(Modifier.fillMaxWidth())
             when {
                 filtered == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                 filtered.isEmpty() -> EmptyState("这里还没有图书", if (filter in listOf("PDF", "有声书")) "V1 暂不支持此格式，请导入 EPUB。" else "导入本地 EPUB，让下一段阅读从这里开始。", if (filter == "图书") "导入 EPUB" else null, onImport)
-                list -> LazyColumn(Modifier.testTag("library-list"), contentPadding = PaddingValues(bottom = 230.dp)) {
+                list -> LazyColumn(Modifier.testTag("library-list"), contentPadding = PaddingValues(bottom = if (selecting) 24.dp else 230.dp)) {
                     items(filtered, key = { it.id }) { book ->
-                        Row(Modifier.fillMaxWidth().combinedClickable(onClickLabel = "阅读《${book.title}》", onLongClickLabel = "更多操作", onClick = { read(book) }, onLongClick = { menu(book) }).padding(20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                        val isSelected = book.id in selectedIds
+                        Row(Modifier.testTag("library-book-${book.id}").fillMaxWidth().semantics { selected = isSelected }.background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface).combinedClickable(onClickLabel = if (selecting) "选择《${book.title}》" else "阅读《${book.title}》", onLongClickLabel = "更多操作", onClick = { if (selecting) toggleBook(book) else read(book) }, onLongClick = { if (!selecting) menu(book) }).padding(20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                             Cover(book, vm.repository::file, Modifier.width(76.dp))
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text(book.title, style = MaterialTheme.typography.titleMedium); Text(book.authors); Text(book.progressLabel, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                            IconButton(onClick = { menu(book) }) { Icon(Icons.Default.MoreVert, "${book.title}的操作") }
+                            if (selecting) SelectionMark(isSelected) else IconButton(onClick = { menu(book) }) { Icon(Icons.Default.MoreVert, "${book.title}的操作") }
                         }
                     }
                 }
-                else -> LazyVerticalGrid(GridCells.Fixed(2), modifier = Modifier.testTag("library-grid"), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 230.dp), horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                else -> LazyVerticalGrid(GridCells.Fixed(2), modifier = Modifier.testTag("library-grid"), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = if (selecting) 24.dp else 230.dp), horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
                     items(filtered, key = { it.id }) { book ->
-                        Column(Modifier.combinedClickable(onClickLabel = "阅读《${book.title}》", onLongClickLabel = "更多操作", onClick = { read(book) }, onLongClick = { menu(book) })) {
-                            Cover(book, vm.repository::file, Modifier.fillMaxWidth())
+                        val isSelected = book.id in selectedIds
+                        Column(Modifier.testTag("library-book-${book.id}").semantics { selected = isSelected }.combinedClickable(onClickLabel = if (selecting) "选择《${book.title}》" else "阅读《${book.title}》", onLongClickLabel = "更多操作", onClick = { if (selecting) toggleBook(book) else read(book) }, onLongClick = { if (!selecting) menu(book) })) {
+                            Box(Modifier.fillMaxWidth().then(if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.medium).padding(3.dp) else Modifier)) {
+                                Cover(book, vm.repository::file, Modifier.fillMaxWidth())
+                                if (selecting) SelectionMark(isSelected, Modifier.align(Alignment.TopEnd).padding(8.dp))
+                            }
                             Text(book.progressLabel, Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                         }
                     }
@@ -73,6 +107,17 @@ fun LibraryScreen(vm: LibraryViewModel, books: List<Book>?, list: Boolean, onVie
             }
         }
     }, confirmButton = { TextButton(onClick = { options = false }) { Text("关闭") } })
+    if (categoryPicker) AlertDialog(onDismissRequest = { categoryPicker = false }, title = { Text("加入自定义分类") }, text = {
+        if (categories.isEmpty()) Text("请先在藏书选项中添加自定义分类。") else Column { categories.forEach { category -> TextButton(onClick = { vm.batchAddCategory(selectedIds, category); categoryPicker = false; exitSelection() }, modifier = Modifier.fillMaxWidth()) { Text(category.name) } } }
+    }, confirmButton = { TextButton(onClick = { categoryPicker = false }) { Text("取消") } })
+    if (confirmBatchDelete) AlertDialog(onDismissRequest = { confirmBatchDelete = false }, title = { Text("移除 ${selectedIds.size} 本图书？") }, text = { Text("此操作会删除 Litra 内的文件和阅读记录，原始文件不受影响。") }, confirmButton = { TextButton(onClick = { vm.batchDelete(selectedIds); confirmBatchDelete = false; exitSelection() }, modifier = Modifier.testTag("confirm-batch-remove")) { Text("移除") } }, dismissButton = { TextButton(onClick = { confirmBatchDelete = false }) { Text("取消") } })
+}
+
+@Composable
+private fun SelectionMark(checked: Boolean, modifier: Modifier = Modifier) {
+    Surface(modifier = modifier.size(28.dp), shape = MaterialTheme.shapes.small, color = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface.copy(alpha = .94f), border = BorderStroke(2.dp, if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)) {
+        Box(contentAlignment = Alignment.Center) { if (checked) Icon(Icons.Default.Check, "已选", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(19.dp)) }
+    }
 }
 
 @Composable

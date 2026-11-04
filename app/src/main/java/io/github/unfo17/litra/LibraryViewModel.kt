@@ -68,6 +68,21 @@ class LibraryViewModel @Inject constructor(val repository: LibraryRepository, va
     fun updateMetadata(book: Book, title: String, authors: String, kind: String) = action { repository.updateMetadata(book.id, title, authors, kind) }
     fun want(book: Book) = action { repository.dao.want(book.id) }
     fun delete(book: Book) = action { repository.delete(book) }
+    fun batchWant(ids: Set<String>) = action {
+        val selected = ids.mapNotNull { repository.dao.book(it) }
+        selected.forEach { repository.dao.want(it.id) }
+        message.value = "已将 ${selected.count { it.status != "FINISHED" }} 本加入欲读清单"
+    }
+    fun batchAddCategory(ids: Set<String>, category: Category) = action {
+        val selected = ids.mapNotNull { repository.dao.book(it) }
+        selected.forEach { repository.dao.addToCategory(BookCategory(it.id, category.id)) }
+        message.value = "已将 ${selected.size} 本加入「${category.name}」"
+    }
+    fun batchDelete(ids: Set<String>) = action {
+        val selected = ids.mapNotNull { repository.dao.book(it) }
+        selected.forEach { repository.delete(it) }
+        message.value = "已移除 ${selected.size} 本图书"
+    }
     fun category(name: String) = action { repository.category(name) }
     fun deleteCategories(ids: List<String>) = action { repository.dao.deleteCategories(ids); if (filter.value in ids) filter.value = "图书" }
     fun addCategory(book: Book, category: Category) = action { repository.dao.addToCategory(BookCategory(book.id, category.id)) }
